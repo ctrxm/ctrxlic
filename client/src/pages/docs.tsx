@@ -46,10 +46,11 @@ const endpoints = [
   {
     method: "POST",
     path: "/api/v1/licenses/validate",
-    description: "Validate a license key and optionally activate it on a machine",
+    description: "Validate a license key. Optionally include product_id, domain, or machine_id for additional checks.",
     body: `{
-  "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
+  "license_key": "CL-XXX-XXX-XXX-XXX",
   "product_id": "your-product-slug",
+  "domain": "yourdomain.com",
   "machine_id": "optional-machine-identifier"
 }`,
     response: `{
@@ -65,11 +66,27 @@ const endpoints = [
 }`,
   },
   {
+    method: "GET",
+    path: "/api/v1/licenses/info/:key",
+    description: "Get public license information (no API key required). Returns license details for the installation page.",
+    body: `// No request body needed
+// Example: GET /api/v1/licenses/info/CL-XXX-XXX-XXX-XXX`,
+    response: `{
+  "licenseKey": "CL-XXX-XXX-XXX-XXX",
+  "productName": "My Product",
+  "type": "standard",
+  "status": "active",
+  "customerName": "John Doe",
+  "expiresAt": "2027-01-15T00:00:00Z",
+  "allowedDomains": ["example.com"]
+}`,
+  },
+  {
     method: "POST",
     path: "/api/v1/licenses/activate",
     description: "Activate a license on a specific machine",
     body: `{
-  "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
+  "license_key": "CL-XXX-XXX-XXX-XXX",
   "machine_id": "unique-machine-id",
   "hostname": "optional-hostname"
 }`,
@@ -87,7 +104,7 @@ const endpoints = [
     path: "/api/v1/licenses/deactivate",
     description: "Deactivate a license from a specific machine",
     body: `{
-  "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
+  "license_key": "CL-XXX-XXX-XXX-XXX",
   "machine_id": "unique-machine-id"
 }`,
     response: `{
@@ -99,42 +116,56 @@ const endpoints = [
 
 const phpCode = `<?php
 /**
- * LicenseGuard PHP SDK
+ * CTRXL LicenseGuard PHP SDK
  * Add this class to your project to validate licenses
+ * Includes auto-redirect to installation page for buyers
  */
 class LicenseGuard {
     private string $apiKey;
     private string $baseUrl;
+    private string $licenseKey;
     
-    public function __construct(string $apiKey, string $baseUrl = '${baseUrl}') {
+    public function __construct(string $apiKey, string $licenseKey, string $baseUrl = '${baseUrl}') {
         $this->apiKey = $apiKey;
+        $this->licenseKey = $licenseKey;
         $this->baseUrl = rtrim($baseUrl, '/');
     }
     
-    public function validate(string $licenseKey, string $productId, ?string $machineId = null): object {
+    public function getInstallUrl(): string {
+        return $this->baseUrl . '/install/' . urlencode($this->licenseKey);
+    }
+    
+    public function validate(?string $domain = null, ?string $productId = null, ?string $machineId = null): object {
         $payload = [
-            'license_key' => $licenseKey,
-            'product_id' => $productId,
+            'license_key' => $this->licenseKey,
         ];
-        
-        if ($machineId) {
-            $payload['machine_id'] = $machineId;
-        }
+        if ($domain) $payload['domain'] = $domain;
+        if ($productId) $payload['product_id'] = $productId;
+        if ($machineId) $payload['machine_id'] = $machineId;
         
         return $this->request('POST', '/api/v1/licenses/validate', $payload);
     }
     
-    public function activate(string $licenseKey, string $machineId, ?string $hostname = null): object {
+    public function validateOrRedirect(?string $domain = null, ?string $productId = null): void {
+        $result = $this->validate($domain ?? ($_SERVER['HTTP_HOST'] ?? ''), $productId);
+        
+        if (!$result->valid) {
+            header('Location: ' . $this->getInstallUrl());
+            exit;
+        }
+    }
+    
+    public function activate(string $machineId, ?string $hostname = null): object {
         return $this->request('POST', '/api/v1/licenses/activate', [
-            'license_key' => $licenseKey,
+            'license_key' => $this->licenseKey,
             'machine_id' => $machineId,
             'hostname' => $hostname,
         ]);
     }
     
-    public function deactivate(string $licenseKey, string $machineId): object {
+    public function deactivate(string $machineId): object {
         return $this->request('POST', '/api/v1/licenses/deactivate', [
-            'license_key' => $licenseKey,
+            'license_key' => $this->licenseKey,
             'machine_id' => $machineId,
         ]);
     }
@@ -165,23 +196,29 @@ class LicenseGuard {
     }
 }
 
-// Usage Example
-$lg = new LicenseGuard('your_api_key_here');
+// === OPTION 1: Auto-redirect to install page if license invalid ===
+// Add this to your bootstrap/config file (e.g. config.php, index.php)
+$lg = new LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX');
+$lg->validateOrRedirect(); // Redirects buyer to install page automatically
+
+// === OPTION 2: Manual validation with custom handling ===
+$lg = new LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX');
 
 try {
-    $result = $lg->validate(
-        'LG-XXXX-XXXX-XXXX-XXXX',
-        'your-product-slug',
-        gethostname()
-    );
+    $result = $lg->validate($_SERVER['HTTP_HOST'], null, gethostname());
     
     if ($result->valid) {
         echo "License is valid!\\n";
         echo "Type: " . $result->license->type . "\\n";
-        echo "Expires: " . $result->license->expires_at . "\\n";
+    } else {
+        // Redirect to installation page
+        header('Location: ' . $lg->getInstallUrl());
+        exit;
     }
 } catch (Exception $e) {
-    echo "Error: " . $e->getMessage() . "\\n";
+    // Redirect to installation page on error
+    header('Location: ' . $lg->getInstallUrl());
+    exit;
 }`;
 
 const nextjsCode = `// lib/license-guard.ts
@@ -201,28 +238,34 @@ interface ValidateResult {
 class LicenseGuard {
   private apiKey: string;
   private baseUrl: string;
+  private licenseKey: string;
 
-  constructor(apiKey: string, baseUrl: string = '${baseUrl}') {
+  constructor(apiKey: string, licenseKey: string, baseUrl: string = '${baseUrl}') {
     this.apiKey = apiKey;
+    this.licenseKey = licenseKey;
     this.baseUrl = baseUrl.replace(/\\/$/, '');
   }
 
-  async validate(
-    licenseKey: string,
-    productId: string,
-    machineId?: string
-  ): Promise<ValidateResult> {
+  getInstallUrl(): string {
+    return \`\${this.baseUrl}/install/\${encodeURIComponent(this.licenseKey)}\`;
+  }
+
+  async validate(domain?: string, productId?: string, machineId?: string): Promise<ValidateResult> {
+    const payload: Record<string, string | undefined> = {
+      license_key: this.licenseKey,
+      domain,
+      product_id: productId,
+      machine_id: machineId,
+    };
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
     const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/validate\`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': this.apiKey,
       },
-      body: JSON.stringify({
-        license_key: licenseKey,
-        product_id: productId,
-        machine_id: machineId,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -233,7 +276,7 @@ class LicenseGuard {
     return response.json();
   }
 
-  async activate(licenseKey: string, machineId: string, hostname?: string) {
+  async activate(machineId: string, hostname?: string) {
     const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/activate\`, {
       method: 'POST',
       headers: {
@@ -241,7 +284,7 @@ class LicenseGuard {
         'X-API-Key': this.apiKey,
       },
       body: JSON.stringify({
-        license_key: licenseKey,
+        license_key: this.licenseKey,
         machine_id: machineId,
         hostname,
       }),
@@ -255,7 +298,7 @@ class LicenseGuard {
     return response.json();
   }
 
-  async deactivate(licenseKey: string, machineId: string) {
+  async deactivate(machineId: string) {
     const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/deactivate\`, {
       method: 'POST',
       headers: {
@@ -263,7 +306,7 @@ class LicenseGuard {
         'X-API-Key': this.apiKey,
       },
       body: JSON.stringify({
-        license_key: licenseKey,
+        license_key: this.licenseKey,
         machine_id: machineId,
       }),
     });
@@ -277,27 +320,43 @@ class LicenseGuard {
   }
 }
 
-// Usage in Next.js API Route
-// app/api/check-license/route.ts
+// === OPTION 1: Auto-redirect in Next.js middleware ===
+// middleware.ts (root of your Next.js project)
 import { NextResponse } from 'next/server';
-import os from 'os';
+import type { NextRequest } from 'next/server';
 
-const lg = new LicenseGuard(process.env.LG_API_KEY!);
+const lg = new LicenseGuard(
+  process.env.CTRXL_API_KEY!,
+  process.env.CTRXL_LICENSE_KEY! // e.g. 'CL-XXX-XXX-XXX-XXX'
+);
 
-export async function POST(request: Request) {
-  const { licenseKey } = await request.json();
-  
+export async function middleware(request: NextRequest) {
   try {
-    const result = await lg.validate(
-      licenseKey,
-      'your-product-slug',
-      os.hostname()
-    );
-    
+    const result = await lg.validate(request.headers.get('host') || '');
+    if (!result.valid) {
+      return NextResponse.redirect(lg.getInstallUrl());
+    }
+  } catch {
+    return NextResponse.redirect(lg.getInstallUrl());
+  }
+  return NextResponse.next();
+}
+
+// === OPTION 2: Validate in API route ===
+// app/api/check-license/route.ts
+export async function GET() {
+  try {
+    const result = await lg.validate();
+    if (!result.valid) {
+      return NextResponse.json({ 
+        valid: false, 
+        installUrl: lg.getInstallUrl() 
+      });
+    }
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      { valid: false, message: 'License validation failed' },
+      { valid: false, installUrl: lg.getInstallUrl() },
       { status: 400 }
     );
   }
@@ -306,44 +365,42 @@ export async function POST(request: Request) {
 const pythonCode = `import requests
 import socket
 from typing import Optional
+from urllib.parse import quote
 
 class LicenseGuard:
-    """LicenseGuard Python SDK"""
+    """CTRXL LicenseGuard Python SDK with auto-redirect support"""
     
-    def __init__(self, api_key: str, base_url: str = '${baseUrl}'):
+    def __init__(self, api_key: str, license_key: str, base_url: str = '${baseUrl}'):
         self.api_key = api_key
+        self.license_key = license_key
         self.base_url = base_url.rstrip('/')
     
-    def validate(
-        self,
-        license_key: str,
-        product_id: str,
-        machine_id: Optional[str] = None
-    ) -> dict:
+    def get_install_url(self) -> str:
+        return f'{self.base_url}/install/{quote(self.license_key)}'
+    
+    def validate(self, domain: Optional[str] = None, product_id: Optional[str] = None, machine_id: Optional[str] = None) -> dict:
         payload = {
-            'license_key': license_key,
-            'product_id': product_id,
+            'license_key': self.license_key,
         }
+        if domain:
+            payload['domain'] = domain
+        if product_id:
+            payload['product_id'] = product_id
         if machine_id:
             payload['machine_id'] = machine_id
         
         return self._request('POST', '/api/v1/licenses/validate', payload)
     
-    def activate(
-        self,
-        license_key: str,
-        machine_id: str,
-        hostname: Optional[str] = None
-    ) -> dict:
+    def activate(self, machine_id: str, hostname: Optional[str] = None) -> dict:
         return self._request('POST', '/api/v1/licenses/activate', {
-            'license_key': license_key,
+            'license_key': self.license_key,
             'machine_id': machine_id,
             'hostname': hostname,
         })
     
-    def deactivate(self, license_key: str, machine_id: str) -> dict:
+    def deactivate(self, machine_id: str) -> dict:
         return self._request('POST', '/api/v1/licenses/deactivate', {
-            'license_key': license_key,
+            'license_key': self.license_key,
             'machine_id': machine_id,
         })
     
@@ -361,38 +418,56 @@ class LicenseGuard:
         return response.json()
 
 
-# Usage Example
-lg = LicenseGuard('your_api_key_here')
+# === OPTION 1: Auto-redirect with Flask ===
+from flask import Flask, redirect
+app = Flask(__name__)
+
+lg = LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX')
+
+@app.before_request
+def check_license():
+    try:
+        result = lg.validate()
+        if not result.get('valid'):
+            return redirect(lg.get_install_url())
+    except Exception:
+        return redirect(lg.get_install_url())
+
+# === OPTION 2: Manual validation ===
+lg = LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX')
 
 try:
-    result = lg.validate(
-        'LG-XXXX-XXXX-XXXX-XXXX',
-        'your-product-slug',
-        socket.gethostname()
-    )
+    result = lg.validate(machine_id=socket.gethostname())
     
     if result['valid']:
         print(f"License valid! Type: {result['license']['type']}")
-        print(f"Expires: {result['license']['expires_at']}")
+    else:
+        print(f"License invalid! Install at: {lg.get_install_url()}")
 except Exception as e:
-    print(f"Error: {e}")`;
+    print(f"Error: {e}")
+    print(f"Visit: {lg.get_install_url()}")`;
 
 const curlCode = `# Validate a license
 curl -X POST ${baseUrl}/api/v1/licenses/validate \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: your_api_key_here" \\
   -d '{
-    "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
-    "product_id": "your-product-slug",
-    "machine_id": "my-machine-001"
+    "license_key": "CL-XXX-XXX-XXX-XXX",
+    "domain": "yourdomain.com"
   }'
+
+# Get license info (public, no API key needed)
+curl ${baseUrl}/api/v1/licenses/info/CL-XXX-XXX-XXX-XXX
+
+# Install page URL for buyers:
+# ${baseUrl}/install/CL-XXX-XXX-XXX-XXX
 
 # Activate a license
 curl -X POST ${baseUrl}/api/v1/licenses/activate \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: your_api_key_here" \\
   -d '{
-    "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
+    "license_key": "CL-XXX-XXX-XXX-XXX",
     "machine_id": "my-machine-001",
     "hostname": "workstation-1"
   }'
@@ -402,7 +477,7 @@ curl -X POST ${baseUrl}/api/v1/licenses/deactivate \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: your_api_key_here" \\
   -d '{
-    "license_key": "LG-XXXX-XXXX-XXXX-XXXX",
+    "license_key": "CL-XXX-XXX-XXX-XXX",
     "machine_id": "my-machine-001"
   }'`;
 
@@ -450,6 +525,62 @@ export default function DocsPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="p-5">
+        <h2 className="font-semibold text-lg mb-3">Auto-Redirect Flow</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Embed auto-redirect into your source code so that when a buyer opens the application without a valid license, they are automatically redirected to the license installation page.
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-1">1</span>
+            </div>
+            <div>
+              <p className="font-medium text-sm">Create Product & License</p>
+              <p className="text-sm text-muted-foreground">
+                Create a product and generate a license key (e.g. <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">CL-XXX-XXX-XXX-XXX</code>) from the dashboard.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-2">2</span>
+            </div>
+            <div>
+              <p className="font-medium text-sm">Embed SDK in Source Code</p>
+              <p className="text-sm text-muted-foreground">
+                Add the LicenseGuard SDK to your source code with the <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">validateOrRedirect()</code> method. This will auto-redirect users to the install page if the license is invalid.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-3">3</span>
+            </div>
+            <div>
+              <p className="font-medium text-sm">Buyer Opens Application</p>
+              <p className="text-sm text-muted-foreground">
+                When the buyer runs your source code, the SDK validates the license. If invalid, the buyer is automatically redirected to:
+              </p>
+              <code className="block mt-1 bg-muted px-2 py-1.5 rounded text-xs font-mono" data-testid="text-install-url-example">
+                {baseUrl}/install/CL-XXX-XXX-XXX-XXX
+              </code>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-4">4</span>
+            </div>
+            <div>
+              <p className="font-medium text-sm">Buyer Sees License Info & Setup Guide</p>
+              <p className="text-sm text-muted-foreground">
+                The installation page shows license details, status, allowed domains, and step-by-step integration instructions with code snippets for the buyer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <div>
         <h2 className="font-semibold text-lg mb-4">SDK Integration</h2>
