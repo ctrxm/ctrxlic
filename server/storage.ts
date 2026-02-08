@@ -80,6 +80,7 @@ export class DatabaseStorage implements IStorage {
         status: licenses.status,
         maxActivations: licenses.maxActivations,
         currentActivations: licenses.currentActivations,
+        allowedDomains: licenses.allowedDomains,
         expiresAt: licenses.expiresAt,
         metadata: licenses.metadata,
         createdAt: licenses.createdAt,

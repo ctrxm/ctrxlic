@@ -61,6 +61,7 @@ const generateLicenseSchema = z.object({
   customerEmail: z.string().email("Invalid email").optional().or(z.literal("")),
   maxActivations: z.coerce.number().min(1).default(1),
   expiresAt: z.string().optional(),
+  allowedDomains: z.string().optional(),
 });
 
 type GenerateLicenseForm = z.infer<typeof generateLicenseSchema>;
@@ -89,15 +90,19 @@ export default function LicensesPage() {
 
   const form = useForm<GenerateLicenseForm>({
     resolver: zodResolver(generateLicenseSchema),
-    defaultValues: { productId: "", type: "standard", customerName: "", customerEmail: "", maxActivations: 1, expiresAt: "" },
+    defaultValues: { productId: "", type: "standard", customerName: "", customerEmail: "", maxActivations: 1, expiresAt: "", allowedDomains: "" },
   });
 
   const generateMutation = useMutation({
     mutationFn: async (data: GenerateLicenseForm) => {
+      const domains = data.allowedDomains
+        ? data.allowedDomains.split(",").map((d) => d.trim()).filter(Boolean)
+        : undefined;
       const payload = {
         ...data,
         expiresAt: data.expiresAt || undefined,
         customerEmail: data.customerEmail || undefined,
+        allowedDomains: domains && domains.length > 0 ? domains : undefined,
       };
       const res = await apiRequest("POST", "/api/licenses", payload);
       return res.json();
@@ -275,6 +280,26 @@ export default function LicensesPage() {
                         <FormControl>
                           <Input type="date" {...field} data-testid="input-expires-at" />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="allowedDomains"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Allowed Domains</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="example.com, app.example.com"
+                            {...field}
+                            data-testid="input-allowed-domains"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          Comma-separated list of domains. Leave empty for no restriction.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}

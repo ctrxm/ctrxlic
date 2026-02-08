@@ -33,6 +33,7 @@ export const licenses = pgTable("licenses", {
   status: text("status").notNull().default("active"),
   maxActivations: integer("max_activations").default(1),
   currentActivations: integer("current_activations").default(0),
+  allowedDomains: text("allowed_domains").array(),
   expiresAt: timestamp("expires_at"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),

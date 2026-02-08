@@ -1,18 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, authStorage } from "./replit_integrations/auth";
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 
 function generateLicenseKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   const segment = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `LG-${segment()}-${segment()}-${segment()}-${segment()}`;
+    Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `CL-${segment()}-${segment()}-${segment()}-${segment()}`;
 }
 
 function generateApiKey(): string {
-  return `lg_${randomBytes(32).toString("hex")}`;
+  return `cl_${randomBytes(32).toString("hex")}`;
 }
 
 export async function registerRoutes(
@@ -22,7 +23,80 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  const getUserId = (req: any): string => req.user?.claims?.sub;
+  const getUserId = (req: any): string => {
+    if (req.user?.authType === "local") return req.user.userId;
+    return req.user?.claims?.sub;
+  };
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const existing = await authStorage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const user = await authStorage.upsertUser({
+        email,
+        passwordHash,
+        firstName: firstName || null,
+        lastName: lastName || null,
+      });
+
+      req.login(
+        { authType: "local", userId: user.id, claims: { sub: user.id } },
+        (err: any) => {
+          if (err) return res.status(500).json({ message: "Login failed" });
+          res.json(user);
+        }
+      );
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const user = await authStorage.getUserByEmail(email);
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      req.login(
+        { authType: "local", userId: user.id, claims: { sub: user.id } },
+        (err: any) => {
+          if (err) return res.status(500).json({ message: "Login failed" });
+          res.json(user);
+        }
+      );
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout(() => {
+      res.json({ message: "Logged out" });
+    });
+  });
 
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
@@ -109,7 +183,7 @@ export async function registerRoutes(
   app.post("/api/licenses", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const { productId, type, customerName, customerEmail, maxActivations, expiresAt } = req.body;
+      const { productId, type, customerName, customerEmail, maxActivations, expiresAt, allowedDomains } = req.body;
 
       if (!productId) {
         return res.status(400).json({ message: "Product is required" });
@@ -119,6 +193,10 @@ export async function registerRoutes(
       if (!product) {
         return res.status(400).json({ message: "Product not found" });
       }
+
+      const normalizedDomains = Array.isArray(allowedDomains)
+        ? allowedDomains.map((d: string) => d.toLowerCase().replace(/^www\./, "").trim()).filter(Boolean)
+        : null;
 
       const licenseKey = generateLicenseKey();
       const license = await storage.createLicense({
@@ -132,6 +210,7 @@ export async function registerRoutes(
         expiresAt: expiresAt || null,
         status: "active",
         metadata: null,
+        allowedDomains: normalizedDomains && normalizedDomains.length > 0 ? normalizedDomains : null,
       });
 
       await storage.createAuditLog({
@@ -282,7 +361,7 @@ export async function registerRoutes(
 
   app.post("/api/v1/licenses/validate", validateApiKey, async (req: any, res) => {
     try {
-      const { license_key, product_id, machine_id } = req.body;
+      const { license_key, product_id, machine_id, domain } = req.body;
 
       if (!license_key) {
         return res.status(400).json({ valid: false, message: "license_key is required" });
@@ -301,6 +380,24 @@ export async function registerRoutes(
         const product = await storage.getProduct(license.productId);
         if (product && product.slug !== product_id && product.id !== product_id) {
           return res.status(400).json({ valid: false, message: "License does not match product" });
+        }
+      }
+
+      if (license.allowedDomains && license.allowedDomains.length > 0 && domain) {
+        const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
+        const allowed = license.allowedDomains.some(
+          (d: string) => d.toLowerCase().replace(/^www\./, "") === normalizedDomain
+        );
+        if (!allowed) {
+          return res.json({
+            valid: false,
+            message: "License is not authorized for this domain",
+            license: {
+              type: license.type,
+              status: license.status,
+              allowed_domains: license.allowedDomains,
+            },
+          });
         }
       }
 
@@ -415,6 +512,31 @@ export async function registerRoutes(
       res.json({ success: true, activation });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get("/api/v1/licenses/info/:key", async (req, res) => {
+    try {
+      const license = await storage.getLicenseByKey(req.params.key);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      const product = await storage.getProduct(license.productId);
+
+      res.json({
+        licenseKey: license.licenseKey,
+        productName: product?.name || "Unknown",
+        type: license.type,
+        status: license.status,
+        customerName: license.customerName || null,
+        maxActivations: license.maxActivations,
+        currentActivations: license.currentActivations,
+        allowedDomains: license.allowedDomains,
+        expiresAt: license.expiresAt,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

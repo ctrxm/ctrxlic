@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
-import type { User } from "@shared/models/auth";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -43,7 +42,7 @@ const adminItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const initials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`.toUpperCase() || "U"
@@ -58,7 +57,7 @@ export function AppSidebar() {
           </div>
           <div>
             <span className="font-semibold text-sm tracking-tight" data-testid="text-sidebar-brand">
-              LicenseGuard
+              CTRXL LICENSE
             </span>
             <p className="text-xs text-muted-foreground">License Manager</p>
           </div>
@@ -121,11 +120,13 @@ export function AppSidebar() {
               {user?.email}
             </p>
           </div>
-          <a href="/api/logout">
-            <SidebarMenuButton className="h-8 w-8 p-0 flex items-center justify-center" data-testid="button-logout">
-              <LogOut className="h-4 w-4" />
-            </SidebarMenuButton>
-          </a>
+          <SidebarMenuButton
+            className="h-8 w-8 p-0 flex items-center justify-center"
+            data-testid="button-logout"
+            onClick={() => logout()}
+          >
+            <LogOut className="h-4 w-4" />
+          </SidebarMenuButton>
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +14,13 @@ import {
   CheckCircle2,
   Lock,
   RefreshCw,
+  Menu,
+  X,
 } from "lucide-react";
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
       <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-md">
@@ -26,7 +31,7 @@ export default function LandingPage() {
                 <Key className="h-4 w-4 text-primary-foreground" />
               </div>
               <span className="font-semibold text-lg tracking-tight" data-testid="text-brand-name">
-                LicenseGuard
+                CTRXL LICENSE
               </span>
             </div>
             <div className="hidden md:flex items-center gap-6">
@@ -42,57 +47,106 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <a href="/api/login">
-                <Button variant="ghost" data-testid="button-login">
+              <div className="hidden sm:flex items-center gap-2">
+                <a href="/auth">
+                  <Button variant="ghost" data-testid="button-login">
+                    Sign In
+                  </Button>
+                </a>
+                <a href="/auth">
+                  <Button data-testid="button-get-started">
+                    Get Started
+                    <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </a>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="md:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                data-testid="button-mobile-menu"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t bg-background px-4 py-4 space-y-3">
+            <a
+              href="#features"
+              className="block text-sm text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Features
+            </a>
+            <a
+              href="#integration"
+              className="block text-sm text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Integration
+            </a>
+            <a
+              href="#pricing"
+              className="block text-sm text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Pricing
+            </a>
+            <div className="flex flex-col gap-2 pt-2 border-t">
+              <a href="/auth">
+                <Button variant="ghost" className="w-full justify-start" data-testid="button-mobile-login">
                   Sign In
                 </Button>
               </a>
-              <a href="/api/login">
-                <Button data-testid="button-get-started">
+              <a href="/auth">
+                <Button className="w-full" data-testid="button-mobile-signup">
                   Get Started
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               </a>
             </div>
           </div>
-        </div>
+        )}
       </nav>
 
-      <section className="pt-32 pb-20 px-4">
+      <section className="pt-28 sm:pt-32 pb-16 sm:pb-20 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="space-y-6 sm:space-y-8">
               <div>
                 <Badge variant="secondary" className="mb-4">
                   <Zap className="h-3 w-3 mr-1" />
                   Enterprise License Management
                 </Badge>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight font-serif">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight font-serif">
                   Manage Your
                   <br />
                   <span className="text-primary">Software Licenses</span>
                   <br />
                   With Confidence
                 </h1>
-                <p className="mt-6 text-lg text-muted-foreground max-w-lg leading-relaxed">
-                  A powerful license management platform for software developers. Generate, validate, and track licenses with a simple REST API. Integrate with PHP, Next.js, and more.
+                <p className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed">
+                  A powerful license management platform with domain binding for software developers. Generate, validate, and track licenses with a simple REST API.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <a href="/api/login">
-                  <Button size="lg" data-testid="button-hero-cta">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                <a href="/auth" className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full sm:w-auto" data-testid="button-hero-cta">
                     Start Free
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </a>
-                <a href="#integration">
-                  <Button size="lg" variant="outline" data-testid="button-view-docs">
+                <a href="#integration" className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto" data-testid="button-view-docs">
                     <Code2 className="mr-1 h-4 w-4" />
                     View Docs
                   </Button>
                 </a>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 sm:gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-chart-2" />
                   Free forever plan
@@ -103,7 +157,7 @@ export default function LandingPage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-chart-2" />
-                  REST API included
+                  Domain binding included
                 </span>
               </div>
             </div>
@@ -117,9 +171,9 @@ export default function LandingPage() {
                   <div className="bg-background rounded-md p-4 font-mono text-sm overflow-x-auto">
                     <pre className="text-muted-foreground">
 {`{
-  "license_key": "LG-XXXX-XXXX-XXXX",
+  "license_key": "CL-X7K-M3P-R9N-Q2L",
   "product_id": "prod_abc123",
-  "machine_id": "hw_9f8e7d6c"
+  "domain": "myapp.com"
 }`}
                     </pre>
                   </div>
@@ -148,17 +202,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="py-20 px-4 bg-card/30">
+      <section id="features" className="py-16 sm:py-20 px-4 bg-card/30">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-serif tracking-tight">
               Everything You Need
             </h2>
-            <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="mt-4 text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
               Full-featured license management with developer-friendly tools
             </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
                 icon: Key,
@@ -173,6 +227,12 @@ export default function LandingPage() {
                   "Set max activations per license. Track machine IDs and manage device limits with ease.",
               },
               {
+                icon: Globe,
+                title: "Domain Binding",
+                description:
+                  "Bind licenses to specific domains. Prevent unauthorized usage by restricting which domains can use a license.",
+              },
+              {
                 icon: BarChart3,
                 title: "Analytics Dashboard",
                 description:
@@ -185,23 +245,17 @@ export default function LandingPage() {
                   "Full-featured REST API with documentation for PHP, Next.js, Python, and more frameworks.",
               },
               {
-                icon: Globe,
-                title: "Multi-Product",
-                description:
-                  "Manage licenses across multiple products. Each with its own settings, keys, and analytics.",
-              },
-              {
                 icon: Lock,
                 title: "Secure by Default",
                 description:
                   "API key authentication, rate limiting, and audit logs for all license operations.",
               },
             ].map((feature) => (
-              <Card key={feature.title} className="p-6 hover-elevate">
+              <Card key={feature.title} className="p-5 sm:p-6 hover-elevate">
                 <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center mb-4">
                   <feature.icon className="h-5 w-5 text-primary" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                <h3 className="font-semibold text-base sm:text-lg mb-2">{feature.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {feature.description}
                 </p>
@@ -211,29 +265,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="integration" className="py-20 px-4">
+      <section id="integration" className="py-16 sm:py-20 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-serif tracking-tight">
               Easy Integration
             </h2>
-            <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="mt-4 text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
               Add license validation to your app in minutes with our SDK
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+          <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge variant="secondary">PHP</Badge>
                 <span className="text-sm text-muted-foreground">Laravel / WordPress / Custom</span>
               </div>
-              <div className="bg-background rounded-md p-4 font-mono text-sm overflow-x-auto">
+              <div className="bg-background rounded-md p-3 sm:p-4 font-mono text-xs sm:text-sm overflow-x-auto">
                 <pre className="text-muted-foreground">
 {`<?php
-$response = LicenseGuard::validate([
+$response = CTRXLLicense::validate([
     'license_key' => $key,
     'product_id'  => 'your_product',
-    'machine_id'  => gethostname()
+    'domain'      => $_SERVER['HTTP_HOST']
 ]);
 
 if ($response->valid) {
@@ -244,23 +298,23 @@ if ($response->valid) {
                 </pre>
               </div>
             </Card>
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Badge variant="secondary">Next.js</Badge>
                 <span className="text-sm text-muted-foreground">React / Node.js / TypeScript</span>
               </div>
-              <div className="bg-background rounded-md p-4 font-mono text-sm overflow-x-auto">
+              <div className="bg-background rounded-md p-3 sm:p-4 font-mono text-xs sm:text-sm overflow-x-auto">
                 <pre className="text-muted-foreground">
-{`import { LicenseGuard } from 'licenseguard';
+{`import { CTRXLLicense } from 'ctrxl';
 
-const client = new LicenseGuard({
-  apiKey: process.env.LG_API_KEY
+const client = new CTRXLLicense({
+  apiKey: process.env.CL_API_KEY
 });
 
 const result = await client.validate({
   licenseKey: key,
   productId: 'your_product',
-  machineId: os.hostname()
+  domain: request.headers.host
 });
 
 if (result.valid) {
@@ -273,41 +327,41 @@ if (result.valid) {
         </div>
       </section>
 
-      <section id="pricing" className="py-20 px-4 bg-card/30">
+      <section id="pricing" className="py-16 sm:py-20 px-4 bg-card/30">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-serif tracking-tight">
               Simple Pricing
             </h2>
-            <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="mt-4 text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
               Start free, upgrade when you need more
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {[
               {
                 name: "Free",
                 price: "$0",
                 description: "For side projects",
-                features: ["1 Product", "100 Licenses", "1,000 API calls/mo", "Community support"],
+                features: ["1 Product", "100 Licenses", "1,000 API calls/mo", "Domain binding", "Community support"],
               },
               {
                 name: "Pro",
                 price: "$29",
                 description: "For growing teams",
-                features: ["10 Products", "10,000 Licenses", "100,000 API calls/mo", "Priority support", "Webhooks"],
+                features: ["10 Products", "10,000 Licenses", "100,000 API calls/mo", "Domain binding", "Priority support", "Webhooks"],
                 popular: true,
               },
               {
                 name: "Enterprise",
                 price: "Custom",
                 description: "For large orgs",
-                features: ["Unlimited Products", "Unlimited Licenses", "Unlimited API calls", "Dedicated support", "SLA", "Custom integrations"],
+                features: ["Unlimited Products", "Unlimited Licenses", "Unlimited API calls", "Domain binding", "Dedicated support", "SLA"],
               },
             ].map((plan) => (
               <Card
                 key={plan.name}
-                className={`p-6 flex flex-col ${plan.popular ? "border-primary ring-1 ring-primary/20" : ""}`}
+                className={`p-5 sm:p-6 flex flex-col ${plan.popular ? "border-primary ring-1 ring-primary/20" : ""}`}
               >
                 {plan.popular && (
                   <Badge className="self-start mb-4">Most Popular</Badge>
@@ -315,7 +369,7 @@ if (result.valid) {
                 <h3 className="font-semibold text-xl">{plan.name}</h3>
                 <p className="text-muted-foreground text-sm mt-1">{plan.description}</p>
                 <div className="mt-4 mb-6">
-                  <span className="text-4xl font-bold">{plan.price}</span>
+                  <span className="text-3xl sm:text-4xl font-bold">{plan.price}</span>
                   {plan.price !== "Custom" && (
                     <span className="text-muted-foreground">/mo</span>
                   )}
@@ -328,7 +382,7 @@ if (result.valid) {
                     </li>
                   ))}
                 </ul>
-                <a href="/api/login">
+                <a href="/auth">
                   <Button
                     className="w-full"
                     variant={plan.popular ? "default" : "outline"}
@@ -343,16 +397,16 @@ if (result.valid) {
         </div>
       </section>
 
-      <footer className="py-12 px-4 border-t">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <footer className="py-8 sm:py-12 px-4 border-t">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
               <Key className="h-3 w-3 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-sm">LicenseGuard</span>
+            <span className="font-semibold text-sm">CTRXL LICENSE</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} LicenseGuard. All rights reserved.
+            &copy; {new Date().getFullYear()} CTRXL LICENSE. All rights reserved.
           </p>
         </div>
       </footer>

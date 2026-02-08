@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import AuthPage from "@/pages/auth";
 import DashboardPage from "@/pages/dashboard";
 import ProductsPage from "@/pages/products";
 import LicensesPage from "@/pages/licenses";
@@ -19,6 +20,7 @@ import StatisticsPage from "@/pages/statistics";
 import DocsPage from "@/pages/docs";
 import AdminUsersPage from "@/pages/admin-users";
 import AdminSettingsPage from "@/pages/admin-settings";
+import InstallPage from "@/pages/install";
 
 function AuthenticatedLayout() {
   const style = {
@@ -57,6 +59,15 @@ function AuthenticatedLayout() {
 
 function AppContent() {
   const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (location === "/auth") {
+    return <AuthPage />;
+  }
+
+  if (location.startsWith("/install/")) {
+    return <InstallPage />;
+  }
 
   if (isLoading) {
     return (
