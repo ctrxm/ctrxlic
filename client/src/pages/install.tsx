@@ -15,12 +15,17 @@ import {
   FileCode,
   Terminal,
   AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Settings,
+  Zap,
+  HelpCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
-function CodeBlock({ code, language }: { code: string; language: string }) {
+function CodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -111,8 +116,11 @@ export default function InstallPage() {
           <Card className="p-12 text-center">
             <XCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
             <h2 className="text-xl font-bold mb-2">License Not Found</h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-4">
               The license key provided is invalid or does not exist.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Please check that you have the correct license key. If you purchased this source code, contact the seller for your license key.
             </p>
           </Card>
         </div>
@@ -120,193 +128,44 @@ export default function InstallPage() {
     );
   }
 
-  const phpInstallCode = `<?php
-/**
- * CTRXL License Validator
- * Add this to your application bootstrap (e.g. config.php, index.php)
- * Auto-redirects buyers to install page if license is invalid
- */
-class CTRXLLicense {
-    private string \\$apiKey;
-    private string \\$baseUrl;
-    private string \\$licenseKey;
-    
-    public function __construct(string \\$apiKey, string \\$licenseKey, string \\$baseUrl = '${baseUrl}') {
-        \\$this->apiKey = \\$apiKey;
-        \\$this->licenseKey = \\$licenseKey;
-        \\$this->baseUrl = rtrim(\\$baseUrl, '/');
-    }
-    
-    public function getInstallUrl(): string {
-        return \\$this->baseUrl . '/install/' . urlencode(\\$this->licenseKey);
-    }
-    
-    public function validate(?string \\$domain = null, ?string \\$productId = null, ?string \\$machineId = null): object {
-        \\$payload = [
-            'license_key' => \\$this->licenseKey,
-            'domain' => \\$domain ?? \\$_SERVER['HTTP_HOST'] ?? '',
-        ];
-        if (\\$productId) \\$payload['product_id'] = \\$productId;
-        if (\\$machineId) \\$payload['machine_id'] = \\$machineId;
-        
-        \\$ch = curl_init(\\$this->baseUrl . '/api/v1/licenses/validate');
-        curl_setopt_array(\\$ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'X-API-Key: ' . \\$this->apiKey,
-            ],
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode(\\$payload),
-        ]);
-        
-        \\$response = curl_exec(\\$ch);
-        curl_close(\\$ch);
-        
-        return json_decode(\\$response);
-    }
-    
-    public function validateOrRedirect(?string \\$domain = null): void {
-        \\$result = \\$this->validate(\\$domain);
-        
-        if (!\\$result->valid) {
-            header('Location: ' . \\$this->getInstallUrl());
-            exit;
-        }
-    }
-}
+  const isActive = licenseInfo.status === "active";
+  const isExpired = licenseInfo.expiresAt && new Date(licenseInfo.expiresAt) < new Date();
 
-// Add this to your config.php or bootstrap file:
-\\$license = new CTRXLLicense('YOUR_API_KEY', '${licenseKey}');
+  const envFileContent = `# CTRXL License Configuration
+# Copy this file to .env and fill in the values
 
-// Auto-redirect to install page if license is invalid
-\\$license->validateOrRedirect();
+CTRXL_API_KEY=your_api_key_here
+CTRXL_LICENSE_KEY=${licenseKey}`;
 
-// If we reach here, the license is valid!
-// Your application continues normally...`;
+  const phpConfigCode = `<?php
+// config.php - Add this to your application
+require_once __DIR__ . '/LicenseGuard.php';
 
-  const nextjsInstallCode = `// lib/ctrxl-license.ts
-class CTRXLLicense {
-  private apiKey: string;
-  private baseUrl: string;
-  private licenseKey: string;
-
-  constructor(apiKey: string, licenseKey: string, baseUrl: string = '${baseUrl}') {
-    this.apiKey = apiKey;
-    this.licenseKey = licenseKey;
-    this.baseUrl = baseUrl.replace(/\\/$/, '');
-  }
-
-  getInstallUrl(): string {
-    return \`\${this.baseUrl}/install/\${encodeURIComponent(this.licenseKey)}\`;
-  }
-
-  async validate(domain?: string, productId?: string, machineId?: string): Promise<any> {
-    const payload: Record<string, string | undefined> = {
-      license_key: this.licenseKey,
-      domain: domain || (typeof window !== 'undefined' ? window.location.hostname : ''),
-      product_id: productId,
-      machine_id: machineId,
-    };
-    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
-
-    const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/validate\`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    return response.json();
-  }
-}
-
-// === Usage in Next.js middleware.ts ===
-// Auto-redirect buyers to install page if license invalid
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
-const license = new CTRXLLicense(
-  process.env.CTRXL_API_KEY!,
-  '${licenseKey}'
+$license = new LicenseGuard(
+    'your_api_key_here',     // Replace with your API key
+    '${licenseKey}'          // Your license key (already set)
 );
 
-export async function middleware(request: NextRequest) {
-  try {
-    const result = await license.validate(request.headers.get('host') || '');
-    if (!result.valid) {
-      return NextResponse.redirect(license.getInstallUrl());
-    }
-  } catch {
-    return NextResponse.redirect(license.getInstallUrl());
-  }
-  return NextResponse.next();
-}`;
+// Auto-validate: redirects here if license is invalid
+$license->validateOrRedirect();
 
-  const pythonInstallCode = `import requests
-from urllib.parse import quote
+// If we reach here, your license is valid!`;
 
-class CTRXLLicense:
-    def __init__(self, api_key: str, license_key: str, base_url: str = '${baseUrl}'):
-        self.api_key = api_key
-        self.license_key = license_key
-        self.base_url = base_url.rstrip('/')
-    
-    def get_install_url(self) -> str:
-        return f'{self.base_url}/install/{quote(self.license_key)}'
-    
-    def validate(self, domain: str = '', product_id: str = None, machine_id: str = None) -> dict:
-        payload = {
-            'license_key': self.license_key,
-            'domain': domain,
-        }
-        if product_id:
-            payload['product_id'] = product_id
-        if machine_id:
-            payload['machine_id'] = machine_id
-        response = requests.post(
-            f'{self.base_url}/api/v1/licenses/validate',
-            json=payload,
-            headers={
-                'Content-Type': 'application/json',
-                'X-API-Key': self.api_key,
-            }
-        )
-        return response.json()
+  const nextjsConfigCode = `// .env.local - Create this file in your project root
+CTRXL_API_KEY=your_api_key_here
+CTRXL_LICENSE_KEY=${licenseKey}
 
-# === Usage with Flask (auto-redirect) ===
-from flask import Flask, redirect
-app = Flask(__name__)
+// The middleware.ts file in your project will
+// automatically read these values and validate
+// your license on every request.`;
 
-license = CTRXLLicense('YOUR_API_KEY', '${licenseKey}')
+  const pythonConfigCode = `# .env - Create this file in your project root
+CTRXL_API_KEY=your_api_key_here
+CTRXL_LICENSE_KEY=${licenseKey}
 
-@app.before_request
-def check_license():
-    try:
-        result = license.validate()
-        if not result.get('valid'):
-            return redirect(license.get_install_url())
-    except Exception:
-        return redirect(license.get_install_url())
-
-# If license is valid, your app runs normally!`;
-
-  const curlInstallCode = `# Validate your license
-curl -X POST ${baseUrl}/api/v1/licenses/validate \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: YOUR_API_KEY" \\
-  -d '{
-    "license_key": "${licenseKey}",
-    "domain": "yourdomain.com"
-  }'
-
-# View license info (no API key needed)
-curl ${baseUrl}/api/v1/licenses/info/${licenseKey}
-
-# Your install page URL:
-# ${baseUrl}/install/${licenseKey}`;
+# The app.py file in your project will
+# automatically read these values and validate
+# your license on every request.`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -328,12 +187,30 @@ curl ${baseUrl}/api/v1/licenses/info/${licenseKey}
             License Installation Guide
           </h1>
           <p className="text-muted-foreground mt-1">
-            Follow the steps below to integrate your license into your application
+            Follow the steps below to activate your license and start using the application
           </p>
         </div>
 
         <Card className="p-5 space-y-4">
-          <h2 className="font-semibold text-lg">License Information</h2>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <h2 className="font-semibold text-lg">License Information</h2>
+            {isActive && !isExpired ? (
+              <Badge className="bg-chart-2/10 text-chart-2 border-chart-2/20">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Active
+              </Badge>
+            ) : isExpired ? (
+              <Badge variant="destructive">
+                <XCircle className="h-3 w-3 mr-1" />
+                Expired
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                <XCircle className="h-3 w-3 mr-1" />
+                {licenseInfo.status}
+              </Badge>
+            )}
+          </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">License Key</p>
@@ -353,17 +230,6 @@ curl ${baseUrl}/api/v1/licenses/info/${licenseKey}
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Type</p>
               <Badge variant="secondary" className="capitalize" data-testid="text-install-type">{licenseInfo.type}</Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Status</p>
-              <div className="flex items-center gap-1.5">
-                {licenseInfo.status === "active" ? (
-                  <CheckCircle2 className="h-4 w-4 text-chart-2" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-destructive" />
-                )}
-                <span className="text-sm capitalize" data-testid="text-install-status">{licenseInfo.status}</span>
-              </div>
             </div>
             {licenseInfo.customerName && (
               <div className="space-y-1">
@@ -403,104 +269,216 @@ curl ${baseUrl}/api/v1/licenses/info/${licenseKey}
           )}
         </Card>
 
-        <Card className="p-5 space-y-4">
-          <h2 className="font-semibold text-lg">Quick Start</h2>
-          <p className="text-sm text-muted-foreground">
-            This license has been embedded in your source code. Follow these steps to activate it:
-          </p>
-          <div className="space-y-3">
+        <Card className="p-5 space-y-5">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-lg">Quick Setup (3 Steps)</h2>
+          </div>
+
+          <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-xs font-bold text-primary">1</span>
+              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">1</span>
               </div>
-              <div>
-                <p className="font-medium text-sm">Get your API Key</p>
+              <div className="flex-1 space-y-2">
+                <p className="font-medium text-sm">Find the Configuration File</p>
                 <p className="text-sm text-muted-foreground">
-                  Your source code provider will give you an API key. If you have a CTRXL LICENSE dashboard account, you can also create one there.
+                  Look for one of these files in your project root. This is where you'll enter your license information:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="font-mono text-xs">.env</Badge>
+                  <Badge variant="secondary" className="font-mono text-xs">.env.local</Badge>
+                  <Badge variant="secondary" className="font-mono text-xs">config.php</Badge>
+                  <Badge variant="secondary" className="font-mono text-xs">.env.example</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If you see a <code className="bg-muted px-1 py-0.5 rounded font-mono">.env.example</code> file, copy it to <code className="bg-muted px-1 py-0.5 rounded font-mono">.env</code> first.
                 </p>
               </div>
             </div>
+
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-xs font-bold text-primary">2</span>
+              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">2</span>
               </div>
-              <div>
-                <p className="font-medium text-sm">Configure Your Application</p>
+              <div className="flex-1 space-y-2">
+                <p className="font-medium text-sm">Enter Your License Key & API Key</p>
                 <p className="text-sm text-muted-foreground">
-                  Your source code already includes the license validation SDK. Replace <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">YOUR_API_KEY</code> with the API key from step 1 in your configuration file.
+                  Your license key is already shown above. You also need an API key - the seller should have provided this, or you can request one from them.
                 </p>
+                <div className="flex items-center gap-2 bg-muted/50 rounded-md p-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Your License Key</p>
+                    <code className="text-sm font-mono font-medium">{licenseKey}</code>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={copyKey}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
+
             <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-xs font-bold text-primary">3</span>
+              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">3</span>
               </div>
-              <div>
-                <p className="font-medium text-sm">Set Up Your Domain</p>
+              <div className="flex-1 space-y-2">
+                <p className="font-medium text-sm">Run the Application</p>
                 <p className="text-sm text-muted-foreground">
-                  {licenseInfo.allowedDomains && licenseInfo.allowedDomains.length > 0
-                    ? "Make sure your application runs on one of the allowed domains listed above."
-                    : "Deploy your application to any domain. No domain restrictions apply to this license."}
+                  Start your application as usual. The license will be validated automatically. If everything is configured correctly, the app will run normally without redirecting back to this page.
                 </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-xs font-bold text-primary">4</span>
-              </div>
-              <div>
-                <p className="font-medium text-sm">Deploy & Verify</p>
-                <p className="text-sm text-muted-foreground">
-                  Deploy your application. The license is validated automatically. If the license is active and valid, your app runs normally.
-                </p>
+                {licenseInfo.allowedDomains && licenseInfo.allowedDomains.length > 0 && (
+                  <div className="flex items-start gap-2 bg-muted/50 rounded-md p-3">
+                    <AlertCircle className="h-4 w-4 text-chart-4 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      Make sure your application runs on one of the allowed domains: {licenseInfo.allowedDomains.join(", ")}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </Card>
 
-        <div>
-          <h2 className="font-semibold text-lg mb-4">Integration Code</h2>
-          <Tabs defaultValue="php">
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-lg">Configuration Examples</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Choose your project type below and follow the configuration example. Your license key is already pre-filled.
+          </p>
+          <Tabs defaultValue="env">
             <TabsList className="mb-4 flex-wrap">
+              <TabsTrigger value="env" data-testid="tab-install-env">
+                <Terminal className="h-3.5 w-3.5 mr-1.5" />
+                .env File
+              </TabsTrigger>
               <TabsTrigger value="php" data-testid="tab-install-php">
                 <FileCode className="h-3.5 w-3.5 mr-1.5" />
                 PHP
               </TabsTrigger>
               <TabsTrigger value="nextjs" data-testid="tab-install-nextjs">
                 <Globe className="h-3.5 w-3.5 mr-1.5" />
-                Next.js
+                Next.js / Node.js
               </TabsTrigger>
               <TabsTrigger value="python" data-testid="tab-install-python">
                 <Code2 className="h-3.5 w-3.5 mr-1.5" />
                 Python
               </TabsTrigger>
-              <TabsTrigger value="curl" data-testid="tab-install-curl">
-                <Terminal className="h-3.5 w-3.5 mr-1.5" />
-                cURL
-              </TabsTrigger>
             </TabsList>
+            <TabsContent value="env">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Copy this into your <code className="bg-muted px-1 py-0.5 rounded font-mono">.env</code> or <code className="bg-muted px-1 py-0.5 rounded font-mono">.env.local</code> file:
+                </p>
+                <CodeBlock code={envFileContent} />
+              </div>
+            </TabsContent>
             <TabsContent value="php">
-              <Card className="p-5">
-                <CodeBlock code={phpInstallCode} language="php" />
-              </Card>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  If your project uses PHP, update the <code className="bg-muted px-1 py-0.5 rounded font-mono">config.php</code> file:
+                </p>
+                <CodeBlock code={phpConfigCode} />
+              </div>
             </TabsContent>
             <TabsContent value="nextjs">
-              <Card className="p-5">
-                <CodeBlock code={nextjsInstallCode} language="typescript" />
-              </Card>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Create or update <code className="bg-muted px-1 py-0.5 rounded font-mono">.env.local</code> in your project root:
+                </p>
+                <CodeBlock code={nextjsConfigCode} />
+              </div>
             </TabsContent>
             <TabsContent value="python">
-              <Card className="p-5">
-                <CodeBlock code={pythonInstallCode} language="python" />
-              </Card>
-            </TabsContent>
-            <TabsContent value="curl">
-              <Card className="p-5">
-                <CodeBlock code={curlInstallCode} language="bash" />
-              </Card>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Create or update <code className="bg-muted px-1 py-0.5 rounded font-mono">.env</code> in your project root:
+                </p>
+                <CodeBlock code={pythonConfigCode} />
+              </div>
             </TabsContent>
           </Tabs>
-        </div>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <HelpCircle className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-lg">Troubleshooting</h2>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="font-medium text-sm">I keep getting redirected back to this page</p>
+              <p className="text-sm text-muted-foreground">
+                This means your license is not validating correctly. Check that:
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc list-inside ml-2 space-y-0.5">
+                <li>Your API key is correct (ask the seller if unsure)</li>
+                <li>Your license key matches exactly: <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{licenseKey}</code></li>
+                <li>The <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">.env</code> file is in the project root (not inside a subfolder)</li>
+                {licenseInfo.allowedDomains && licenseInfo.allowedDomains.length > 0 && (
+                  <li>Your app is running on an allowed domain: {licenseInfo.allowedDomains.join(", ")}</li>
+                )}
+              </ul>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-medium text-sm">Where do I get the API key?</p>
+              <p className="text-sm text-muted-foreground">
+                The API key should be provided by the seller along with your purchase. If you don't have one, contact the seller. 
+                The API key starts with <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">cl_</code> and looks like: <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">cl_xxxxxxxxxxxxxxxx</code>
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-medium text-sm">My license shows as expired or inactive</p>
+              <p className="text-sm text-muted-foreground">
+                Contact the seller to renew or reactivate your license. The current status of this license is shown at the top of this page.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-medium text-sm">Can I use this license on multiple domains?</p>
+              <p className="text-sm text-muted-foreground">
+                {licenseInfo.allowedDomains && licenseInfo.allowedDomains.length > 0
+                  ? `This license is restricted to: ${licenseInfo.allowedDomains.join(", ")}. Contact the seller to add more domains.`
+                  : "This license has no domain restrictions and can be used on any domain. However, check your license type for any activation limits."
+                }
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5 space-y-3">
+          <h2 className="font-semibold text-lg">API Endpoints</h2>
+          <p className="text-sm text-muted-foreground">
+            For advanced integration or custom implementations, use these API endpoints directly:
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <Badge className="font-mono text-xs flex-shrink-0">POST</Badge>
+              <div>
+                <code className="text-sm font-mono">{baseUrl}/api/v1/licenses/validate</code>
+                <p className="text-xs text-muted-foreground mt-0.5">Validate your license (requires API key header)</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Badge variant="secondary" className="font-mono text-xs flex-shrink-0">GET</Badge>
+              <div>
+                <code className="text-sm font-mono">{baseUrl}/api/v1/licenses/info/{licenseKey}</code>
+                <p className="text-xs text-muted-foreground mt-0.5">View license info (public, no API key needed)</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Badge className="font-mono text-xs flex-shrink-0">POST</Badge>
+              <div>
+                <code className="text-sm font-mono">{baseUrl}/api/v1/licenses/activate</code>
+                <p className="text-xs text-muted-foreground mt-0.5">Activate license on a machine (requires API key header)</p>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         <footer className="py-8 text-center text-sm text-muted-foreground border-t">
           <p>Powered by CTRXL LICENSE</p>

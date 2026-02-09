@@ -48,11 +48,15 @@ cloudflare-pages/
 - Domain binding - restrict licenses to specific domains
 - License validation REST API (POST /api/v1/licenses/validate) with domain validation
 - Public license info endpoint (GET /api/v1/licenses/info/:key)
-- Public installation page at /install/:key for license buyers
+- Public installation page at /install/:key for license buyers (buyer activation wizard with troubleshooting)
 - License activation/deactivation API
 - Statistics dashboard with charts
-- API documentation with PHP, Next.js, Python, and cURL examples
-- SDK download page - downloadable PHP, Next.js/TypeScript, Python SDK files
+- CodeCanyon-like license protection system:
+  - Seller Guide: step-by-step checklist to embed license SDK in source code
+  - SDK Downloads: PHP, Next.js/TypeScript, Python SDK files with .env.example and INSTALL.md templates
+  - Framework Examples: Vanilla PHP, Laravel, WordPress, Next.js, Express.js, Flask, Django, FastAPI
+  - Auto-redirect flow: buyers redirected to install page if license is invalid
+- API documentation with "How It Works", API Reference, and SDK Code sections
 - Role-based admin panel (only visible to users with role="admin")
   - Admin Overview with system-wide stats
   - User management (promote/demote admin, delete users)

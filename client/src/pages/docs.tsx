@@ -3,7 +3,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, CheckCircle2, Code2, Globe, FileCode, Terminal } from "lucide-react";
+import {
+  Copy,
+  CheckCircle2,
+  Code2,
+  Globe,
+  FileCode,
+  Terminal,
+  ArrowRight,
+  ShieldCheck,
+  Package,
+  Send,
+  Users,
+  BookOpen,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function CodeBlock({ code, language }: { code: string; language: string }) {
@@ -19,12 +32,11 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
 
   return (
     <div className="relative group">
-      <div className="absolute top-2 right-2 z-10">
+      <div className="absolute top-2 right-2 z-10 invisible group-hover:visible">
         <Button
           size="icon"
           variant="ghost"
           onClick={copy}
-          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           {copied ? (
             <CheckCircle2 className="h-3.5 w-3.5 text-chart-2" />
@@ -47,6 +59,8 @@ const endpoints = [
     method: "POST",
     path: "/api/v1/licenses/validate",
     description: "Validate a license key. Optionally include product_id, domain, or machine_id for additional checks.",
+    headers: `X-API-Key: your_api_key_here
+Content-Type: application/json`,
     body: `{
   "license_key": "CL-XXX-XXX-XXX-XXX",
   "product_id": "your-product-slug",
@@ -69,6 +83,7 @@ const endpoints = [
     method: "GET",
     path: "/api/v1/licenses/info/:key",
     description: "Get public license information (no API key required). Returns license details for the installation page.",
+    headers: `Content-Type: application/json`,
     body: `// No request body needed
 // Example: GET /api/v1/licenses/info/CL-XXX-XXX-XXX-XXX`,
     response: `{
@@ -84,7 +99,9 @@ const endpoints = [
   {
     method: "POST",
     path: "/api/v1/licenses/activate",
-    description: "Activate a license on a specific machine",
+    description: "Activate a license on a specific machine. Requires API key.",
+    headers: `X-API-Key: your_api_key_here
+Content-Type: application/json`,
     body: `{
   "license_key": "CL-XXX-XXX-XXX-XXX",
   "machine_id": "unique-machine-id",
@@ -102,7 +119,9 @@ const endpoints = [
   {
     method: "POST",
     path: "/api/v1/licenses/deactivate",
-    description: "Deactivate a license from a specific machine",
+    description: "Deactivate a license from a specific machine. Requires API key.",
+    headers: `X-API-Key: your_api_key_here
+Content-Type: application/json`,
     body: `{
   "license_key": "CL-XXX-XXX-XXX-XXX",
   "machine_id": "unique-machine-id"
@@ -196,30 +215,9 @@ class LicenseGuard {
     }
 }
 
-// === OPTION 1: Auto-redirect to install page if license invalid ===
-// Add this to your bootstrap/config file (e.g. config.php, index.php)
+// === Auto-redirect to install page if license invalid ===
 $lg = new LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX');
-$lg->validateOrRedirect(); // Redirects buyer to install page automatically
-
-// === OPTION 2: Manual validation with custom handling ===
-$lg = new LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX');
-
-try {
-    $result = $lg->validate($_SERVER['HTTP_HOST'], null, gethostname());
-    
-    if ($result->valid) {
-        echo "License is valid!\\n";
-        echo "Type: " . $result->license->type . "\\n";
-    } else {
-        // Redirect to installation page
-        header('Location: ' . $lg->getInstallUrl());
-        exit;
-    }
-} catch (Exception $e) {
-    // Redirect to installation page on error
-    header('Location: ' . $lg->getInstallUrl());
-    exit;
-}`;
+$lg->validateOrRedirect();`;
 
 const nextjsCode = `// lib/license-guard.ts
 interface ValidateResult {
@@ -275,59 +273,15 @@ class LicenseGuard {
 
     return response.json();
   }
-
-  async activate(machineId: string, hostname?: string) {
-    const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/activate\`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
-      },
-      body: JSON.stringify({
-        license_key: this.licenseKey,
-        machine_id: machineId,
-        hostname,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Activation failed');
-    }
-
-    return response.json();
-  }
-
-  async deactivate(machineId: string) {
-    const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/deactivate\`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
-      },
-      body: JSON.stringify({
-        license_key: this.licenseKey,
-        machine_id: machineId,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Deactivation failed');
-    }
-
-    return response.json();
-  }
 }
 
-// === OPTION 1: Auto-redirect in Next.js middleware ===
-// middleware.ts (root of your Next.js project)
+// === Next.js Middleware (auto-redirect) ===
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const lg = new LicenseGuard(
   process.env.CTRXL_API_KEY!,
-  process.env.CTRXL_LICENSE_KEY! // e.g. 'CL-XXX-XXX-XXX-XXX'
+  process.env.CTRXL_LICENSE_KEY!
 );
 
 export async function middleware(request: NextRequest) {
@@ -340,26 +294,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(lg.getInstallUrl());
   }
   return NextResponse.next();
-}
-
-// === OPTION 2: Validate in API route ===
-// app/api/check-license/route.ts
-export async function GET() {
-  try {
-    const result = await lg.validate();
-    if (!result.valid) {
-      return NextResponse.json({ 
-        valid: false, 
-        installUrl: lg.getInstallUrl() 
-      });
-    }
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { valid: false, installUrl: lg.getInstallUrl() },
-      { status: 400 }
-    );
-  }
 }`;
 
 const pythonCode = `import requests
@@ -391,19 +325,6 @@ class LicenseGuard:
         
         return self._request('POST', '/api/v1/licenses/validate', payload)
     
-    def activate(self, machine_id: str, hostname: Optional[str] = None) -> dict:
-        return self._request('POST', '/api/v1/licenses/activate', {
-            'license_key': self.license_key,
-            'machine_id': machine_id,
-            'hostname': hostname,
-        })
-    
-    def deactivate(self, machine_id: str) -> dict:
-        return self._request('POST', '/api/v1/licenses/deactivate', {
-            'license_key': self.license_key,
-            'machine_id': machine_id,
-        })
-    
     def _request(self, method: str, path: str, data: dict) -> dict:
         response = requests.request(
             method,
@@ -418,7 +339,7 @@ class LicenseGuard:
         return response.json()
 
 
-# === OPTION 1: Auto-redirect with Flask ===
+# === Flask Auto-Redirect ===
 from flask import Flask, redirect
 app = Flask(__name__)
 
@@ -431,21 +352,7 @@ def check_license():
         if not result.get('valid'):
             return redirect(lg.get_install_url())
     except Exception:
-        return redirect(lg.get_install_url())
-
-# === OPTION 2: Manual validation ===
-lg = LicenseGuard('your_api_key_here', 'CL-XXX-XXX-XXX-XXX')
-
-try:
-    result = lg.validate(machine_id=socket.gethostname())
-    
-    if result['valid']:
-        print(f"License valid! Type: {result['license']['type']}")
-    else:
-        print(f"License invalid! Install at: {lg.get_install_url()}")
-except Exception as e:
-    print(f"Error: {e}")
-    print(f"Visit: {lg.get_install_url()}")`;
+        return redirect(lg.get_install_url())`;
 
 const curlCode = `# Validate a license
 curl -X POST ${baseUrl}/api/v1/licenses/validate \\
@@ -482,149 +389,346 @@ curl -X POST ${baseUrl}/api/v1/licenses/deactivate \\
   }'`;
 
 export default function DocsPage() {
+  const [activeTab, setActiveTab] = useState<"flow" | "api" | "sdk">("flow");
+
   return (
     <div className="p-6 space-y-8 max-w-[1000px]">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">API Documentation</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Documentation</h1>
         <p className="text-muted-foreground mt-1">
-          Integrate license validation into your application
+          Complete guide for integrating license protection into your source code
         </p>
       </div>
 
-      <Card className="p-5">
-        <h2 className="font-semibold text-lg mb-3">Authentication</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          All API requests require an API key sent via the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">X-API-Key</code> header.
-          Create API keys from the <a href="/api-keys" className="text-primary underline">API Keys</a> page.
-        </p>
-        <CodeBlock
-          code={`curl -H "X-API-Key: your_api_key_here" ${baseUrl}/api/v1/licenses/validate`}
-          language="bash"
-        />
-      </Card>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={activeTab === "flow" ? "default" : "outline"}
+          onClick={() => setActiveTab("flow")}
+          data-testid="button-doc-flow"
+        >
+          <BookOpen className="h-4 w-4 mr-2" />
+          How It Works
+        </Button>
+        <Button
+          variant={activeTab === "api" ? "default" : "outline"}
+          onClick={() => setActiveTab("api")}
+          data-testid="button-doc-api"
+        >
+          <Code2 className="h-4 w-4 mr-2" />
+          API Reference
+        </Button>
+        <Button
+          variant={activeTab === "sdk" ? "default" : "outline"}
+          onClick={() => setActiveTab("sdk")}
+          data-testid="button-doc-sdk"
+        >
+          <FileCode className="h-4 w-4 mr-2" />
+          SDK Code
+        </Button>
+      </div>
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-lg">Endpoints</h2>
-        {endpoints.map((endpoint) => (
-          <Card key={endpoint.path} className="p-5">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <Badge className="font-mono text-xs">{endpoint.method}</Badge>
-              <code className="text-sm font-mono">{endpoint.path}</code>
+      {activeTab === "flow" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold text-lg">License Protection Flow</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">{endpoint.description}</p>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Request Body</p>
-                <CodeBlock code={endpoint.body} language="json" />
+            <p className="text-sm text-muted-foreground">
+              CTRXL LICENSE works like CodeCanyon's license system. You embed a license check in your source code before selling it. 
+              When a buyer runs the application, the SDK validates their license. If invalid, they're automatically redirected to the installation page.
+            </p>
+          </Card>
+
+          <Card className="p-5 space-y-5">
+            <h2 className="font-semibold text-lg">Complete Workflow</h2>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  <h3 className="font-medium text-sm">Phase 1: Seller Setup (You)</h3>
+                </div>
+                <div className="ml-6 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary" data-testid="text-flow-step-1">1</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Create Product & License</p>
+                      <p className="text-sm text-muted-foreground">
+                        Go to <a href="/products" className="text-primary underline">Products</a> and create your product. Then go to <a href="/licenses" className="text-primary underline">Licenses</a> and generate a license key.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary" data-testid="text-flow-step-2">2</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Create API Key</p>
+                      <p className="text-sm text-muted-foreground">
+                        Go to <a href="/api-keys" className="text-primary underline">API Keys</a> and create an API key. You'll give this to your buyer or embed it in a config file.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary" data-testid="text-flow-step-3">3</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Download SDK & Embed in Source Code</p>
+                      <p className="text-sm text-muted-foreground">
+                        Download the SDK from <a href="/downloads" className="text-primary underline">SDK Downloads</a>, add it to your project, and call <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">validateOrRedirect()</code> in your app's entry point.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary" data-testid="text-flow-step-4">4</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Include .env.example & README</p>
+                      <p className="text-sm text-muted-foreground">
+                        Create a <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">.env.example</code> file with placeholders for <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">CTRXL_API_KEY</code> and <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">CTRXL_LICENSE_KEY</code>.
+                        Include a README with installation instructions. Download templates from the <a href="/downloads" className="text-primary underline">SDK Downloads</a> page.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Response</p>
-                <CodeBlock code={endpoint.response} language="json" />
+
+              <div className="border-t pt-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-primary" />
+                  <h3 className="font-medium text-sm">Phase 2: Sell & Distribute</h3>
+                </div>
+                <div className="ml-6 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">5</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Package Your Source Code</p>
+                      <p className="text-sm text-muted-foreground">
+                        Zip your project with the SDK file, .env.example, and README. Sell on CodeCanyon, Gumroad, your own website, etc.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">6</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Send License Key to Buyer</p>
+                      <p className="text-sm text-muted-foreground">
+                        After purchase, send the buyer their license key and API key. You can also optionally set domain restrictions for extra protection.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <h3 className="font-medium text-sm">Phase 3: Buyer Experience</h3>
+                </div>
+                <div className="ml-6 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">7</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Buyer Opens Application</p>
+                      <p className="text-sm text-muted-foreground">
+                        If the license is not configured yet, the buyer is automatically redirected to:
+                      </p>
+                      <code className="block mt-1 bg-muted px-2 py-1.5 rounded text-xs font-mono" data-testid="text-install-url-example">
+                        {baseUrl}/install/CL-XXX-XXX-XXX-XXX
+                      </code>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">8</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Buyer Sees Setup Guide</p>
+                      <p className="text-sm text-muted-foreground">
+                        The installation page shows their license details, status, configuration examples with their license key pre-filled, and troubleshooting tips. 
+                        Once they configure the <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">.env</code> file correctly and restart the app, it runs normally.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
-        ))}
-      </div>
 
-      <Card className="p-5">
-        <h2 className="font-semibold text-lg mb-3">Auto-Redirect Flow</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Embed auto-redirect into your source code so that when a buyer opens the application without a valid license, they are automatically redirected to the license installation page.
-        </p>
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-1">1</span>
+          <Card className="p-5 space-y-3">
+            <h2 className="font-semibold text-lg">Visual Flow</h2>
+            <div className="bg-muted/50 rounded-md p-4">
+              <div className="flex flex-col gap-2 text-sm">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge>You: Create License</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge variant="secondary">Embed SDK in Code</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge variant="secondary">Sell Source Code</Badge>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge>Buyer: Opens App</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge variant="secondary">SDK Checks License</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge variant="secondary">No License? Redirect to Install Page</Badge>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge>Buyer: Configures .env</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge variant="secondary">Restarts App</Badge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  <Badge className="bg-chart-2/10 text-chart-2 border-chart-2/20">App Runs Normally</Badge>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-sm">Create Product & License</p>
-              <p className="text-sm text-muted-foreground">
-                Create a product and generate a license key (e.g. <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">CL-XXX-XXX-XXX-XXX</code>) from the dashboard.
-              </p>
-            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "api" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <Card className="p-5">
+            <h2 className="font-semibold text-lg mb-3">Authentication</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Most API requests require an API key sent via the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">X-API-Key</code> header.
+              Create API keys from the <a href="/api-keys" className="text-primary underline">API Keys</a> page.
+              The <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">GET /info/:key</code> endpoint is public and doesn't require authentication.
+            </p>
+            <CodeBlock
+              code={`curl -H "X-API-Key: cl_xxxxxxxxxxxxxxxx" ${baseUrl}/api/v1/licenses/validate`}
+              language="bash"
+            />
+          </Card>
+
+          <Card className="p-5 space-y-3">
+            <h2 className="font-semibold text-lg">Base URL</h2>
+            <p className="text-sm text-muted-foreground">
+              All API endpoints are relative to your CTRXL LICENSE instance:
+            </p>
+            <code className="block bg-muted px-3 py-2 rounded text-sm font-mono">{baseUrl}</code>
+          </Card>
+
+          <div className="space-y-4">
+            <h2 className="font-semibold text-lg">Endpoints</h2>
+            {endpoints.map((endpoint) => (
+              <Card key={endpoint.path} className="p-5">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Badge className="font-mono text-xs">{endpoint.method}</Badge>
+                  <code className="text-sm font-mono">{endpoint.path}</code>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">{endpoint.description}</p>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Headers</p>
+                    <CodeBlock code={endpoint.headers} language="text" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Request Body</p>
+                    <CodeBlock code={endpoint.body} language="json" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Response</p>
+                    <CodeBlock code={endpoint.response} language="json" />
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
-          <div className="flex items-start gap-3">
-            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-2">2</span>
-            </div>
-            <div>
-              <p className="font-medium text-sm">Embed SDK in Source Code</p>
-              <p className="text-sm text-muted-foreground">
-                Add the LicenseGuard SDK to your source code with the <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">validateOrRedirect()</code> method. This will auto-redirect users to the install page if the license is invalid.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-3">3</span>
-            </div>
-            <div>
-              <p className="font-medium text-sm">Buyer Opens Application</p>
-              <p className="text-sm text-muted-foreground">
-                When the buyer runs your source code, the SDK validates the license. If invalid, the buyer is automatically redirected to:
-              </p>
-              <code className="block mt-1 bg-muted px-2 py-1.5 rounded text-xs font-mono" data-testid="text-install-url-example">
-                {baseUrl}/install/CL-XXX-XXX-XXX-XXX
-              </code>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs font-bold text-primary" data-testid="text-flow-step-4">4</span>
-            </div>
-            <div>
-              <p className="font-medium text-sm">Buyer Sees License Info & Setup Guide</p>
-              <p className="text-sm text-muted-foreground">
-                The installation page shows license details, status, allowed domains, and step-by-step integration instructions with code snippets for the buyer.
-              </p>
-            </div>
+
+          <Card className="p-5 space-y-3">
+            <h2 className="font-semibold text-lg">Error Responses</h2>
+            <p className="text-sm text-muted-foreground">
+              All API errors return a JSON object with a <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">message</code> field.
+            </p>
+            <CodeBlock code={`// 401 Unauthorized
+{
+  "message": "Invalid or missing API key"
+}
+
+// 404 Not Found
+{
+  "message": "License not found"
+}
+
+// 400 Bad Request
+{
+  "message": "license_key is required"
+}
+
+// 200 OK (but invalid license)
+{
+  "valid": false,
+  "message": "License expired"
+}`} language="json" />
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "sdk" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">
+              Complete SDK code examples for all supported languages. For downloadable SDK files and framework-specific integration guides (Laravel, WordPress, Django, FastAPI, Express.js), visit the <a href="/downloads" className="text-primary underline">SDK Downloads</a> page.
+            </p>
+          </Card>
+
+          <div>
+            <h2 className="font-semibold text-lg mb-4">SDK Integration</h2>
+            <Tabs defaultValue="php">
+              <TabsList className="mb-4 flex-wrap">
+                <TabsTrigger value="php" data-testid="tab-php">
+                  <FileCode className="h-3.5 w-3.5 mr-1.5" />
+                  PHP
+                </TabsTrigger>
+                <TabsTrigger value="nextjs" data-testid="tab-nextjs">
+                  <Globe className="h-3.5 w-3.5 mr-1.5" />
+                  Next.js
+                </TabsTrigger>
+                <TabsTrigger value="python" data-testid="tab-python">
+                  <Code2 className="h-3.5 w-3.5 mr-1.5" />
+                  Python
+                </TabsTrigger>
+                <TabsTrigger value="curl" data-testid="tab-curl">
+                  <Terminal className="h-3.5 w-3.5 mr-1.5" />
+                  cURL
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="php">
+                <Card className="p-5">
+                  <CodeBlock code={phpCode} language="php" />
+                </Card>
+              </TabsContent>
+              <TabsContent value="nextjs">
+                <Card className="p-5">
+                  <CodeBlock code={nextjsCode} language="typescript" />
+                </Card>
+              </TabsContent>
+              <TabsContent value="python">
+                <Card className="p-5">
+                  <CodeBlock code={pythonCode} language="python" />
+                </Card>
+              </TabsContent>
+              <TabsContent value="curl">
+                <Card className="p-5">
+                  <CodeBlock code={curlCode} language="bash" />
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
-      </Card>
-
-      <div>
-        <h2 className="font-semibold text-lg mb-4">SDK Integration</h2>
-        <Tabs defaultValue="php">
-          <TabsList className="mb-4">
-            <TabsTrigger value="php" data-testid="tab-php">
-              <FileCode className="h-3.5 w-3.5 mr-1.5" />
-              PHP
-            </TabsTrigger>
-            <TabsTrigger value="nextjs" data-testid="tab-nextjs">
-              <Globe className="h-3.5 w-3.5 mr-1.5" />
-              Next.js
-            </TabsTrigger>
-            <TabsTrigger value="python" data-testid="tab-python">
-              <Code2 className="h-3.5 w-3.5 mr-1.5" />
-              Python
-            </TabsTrigger>
-            <TabsTrigger value="curl" data-testid="tab-curl">
-              <Terminal className="h-3.5 w-3.5 mr-1.5" />
-              cURL
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="php">
-            <Card className="p-5">
-              <CodeBlock code={phpCode} language="php" />
-            </Card>
-          </TabsContent>
-          <TabsContent value="nextjs">
-            <Card className="p-5">
-              <CodeBlock code={nextjsCode} language="typescript" />
-            </Card>
-          </TabsContent>
-          <TabsContent value="python">
-            <Card className="p-5">
-              <CodeBlock code={pythonCode} language="python" />
-            </Card>
-          </TabsContent>
-          <TabsContent value="curl">
-            <Card className="p-5">
-              <CodeBlock code={curlCode} language="bash" />
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+      )}
     </div>
   );
 }
