@@ -2,8 +2,36 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, authStorage } from "./replit_integrations/auth";
-import { randomBytes } from "crypto";
+import { randomBytes, createHmac } from "crypto";
 import bcrypt from "bcryptjs";
+
+const LICENSE_SIGNING_SECRET = process.env.LICENSE_SIGNING_SECRET || (() => {
+  const fallback = randomBytes(64).toString("hex");
+  console.warn("[SECURITY] LICENSE_SIGNING_SECRET not set. Using random secret - tokens will not persist across restarts.");
+  return fallback;
+})();
+
+const nonceStore = new Map<string, { timestamp: number; used: boolean }>();
+
+setInterval(() => {
+  const now = Date.now();
+  nonceStore.forEach((data, nonce) => {
+    if (now - data.timestamp > 5 * 60 * 1000) {
+      nonceStore.delete(nonce);
+    }
+  });
+}, 60 * 1000);
+
+function signResponse(data: object, nonce: string, timestamp: number): string {
+  const payload = JSON.stringify(data) + nonce + timestamp;
+  return createHmac("sha256", LICENSE_SIGNING_SECRET).update(payload).digest("hex");
+}
+
+function generateValidationToken(licenseKey: string, valid: boolean, timestamp: number, context?: { domain?: string; machine_id?: string; product_id?: string }): string {
+  const contextStr = context ? `${context.domain || ""}:${context.machine_id || ""}:${context.product_id || ""}` : "";
+  const payload = `${licenseKey}:${valid}:${timestamp}:${contextStr}:${LICENSE_SIGNING_SECRET}`;
+  return createHmac("sha256", LICENSE_SIGNING_SECRET).update(payload).digest("hex");
+}
 
 function generateLicenseKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -437,7 +465,31 @@ export async function registerRoutes(
     }
   });
 
-  // Public API v1 - License validation (requires API key)
+  app.post("/api/v1/nonce", async (_req, res) => {
+    const nonce = randomBytes(32).toString("hex");
+    const timestamp = Date.now();
+    nonceStore.set(nonce, { timestamp, used: false });
+    res.json({ nonce, timestamp, expires_in: 300 });
+  });
+
+  app.post("/api/v1/licenses/verify-token", async (req, res) => {
+    try {
+      const { license_key, valid, timestamp, token, domain, machine_id, product_id } = req.body;
+      if (!license_key || valid === undefined || !timestamp || !token) {
+        return res.status(400).json({ verified: false, message: "Missing required fields" });
+      }
+      const age = Date.now() - timestamp;
+      if (age > 5 * 60 * 1000) {
+        return res.status(400).json({ verified: false, message: "Token expired" });
+      }
+      const expectedToken = generateValidationToken(license_key, valid, timestamp, { domain, machine_id, product_id });
+      const verified = token === expectedToken;
+      return res.json({ verified });
+    } catch (error: any) {
+      res.status(500).json({ verified: false, message: error.message });
+    }
+  });
+
   const validateApiKey = async (req: any, res: any, next: any) => {
     const apiKeyHeader = req.headers["x-api-key"];
     if (!apiKeyHeader) {
@@ -460,10 +512,25 @@ export async function registerRoutes(
 
   app.post("/api/v1/licenses/validate", validateApiKey, async (req: any, res) => {
     try {
-      const { license_key, product_id, machine_id, domain } = req.body;
+      const { license_key, product_id, machine_id, domain, nonce } = req.body;
 
       if (!license_key) {
         return res.status(400).json({ valid: false, message: "license_key is required" });
+      }
+
+      if (nonce) {
+        const storedNonce = nonceStore.get(nonce);
+        if (!storedNonce) {
+          return res.status(400).json({ valid: false, message: "Invalid nonce. Request a new one from /api/v1/nonce" });
+        }
+        if (storedNonce.used) {
+          return res.status(400).json({ valid: false, message: "Nonce already used. Request a new one." });
+        }
+        if (Date.now() - storedNonce.timestamp > 5 * 60 * 1000) {
+          nonceStore.delete(nonce);
+          return res.status(400).json({ valid: false, message: "Nonce expired. Request a new one." });
+        }
+        storedNonce.used = true;
       }
 
       const license = await storage.getLicenseByKey(license_key);
@@ -559,7 +626,8 @@ export async function registerRoutes(
         ipAddress: req.ip,
       });
 
-      res.json({
+      const timestamp = Date.now();
+      const responseData = {
         valid: true,
         license: {
           type: license.type,
@@ -568,6 +636,20 @@ export async function registerRoutes(
           expires_at: license.expiresAt,
           activations: license.currentActivations,
           max_activations: license.maxActivations,
+        },
+      };
+
+      const signature = signResponse(responseData, nonce || "", timestamp);
+      const validationToken = generateValidationToken(license_key, true, timestamp, { domain, machine_id, product_id });
+
+      res.json({
+        ...responseData,
+        _security: {
+          timestamp,
+          nonce: nonce || null,
+          signature,
+          token: validationToken,
+          algorithm: "hmac-sha256",
         },
       });
     } catch (error: any) {

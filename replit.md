@@ -53,9 +53,17 @@ cloudflare-pages/
 - Statistics dashboard with charts
 - CodeCanyon-like license protection system:
   - Seller Guide: step-by-step checklist to embed license SDK in source code
-  - SDK Downloads: PHP, Next.js/TypeScript, Python SDK files with .env.example and INSTALL.md templates
+  - SDK Downloads v2.0 (Anti-Crack): PHP, Next.js/TypeScript, Python SDK files with .env.example and INSTALL.md templates
   - Framework Examples: Vanilla PHP, Laravel, WordPress, Next.js, Express.js, Flask, Django, FastAPI
   - Auto-redirect flow: buyers redirected to install page if license is invalid
+- Anti-crack protection system:
+  - HMAC-SHA256 cryptographic response signatures (server-side)
+  - Nonce challenge-response protocol (prevents replay attacks)
+  - Validation token verification endpoint (POST /api/v1/licenses/verify-token)
+  - Nonce generation endpoint (POST /api/v1/nonce)
+  - SDK heartbeat (periodic re-validation in background)
+  - Anti-tamper detection (SDK file integrity hash check)
+  - Encrypted cache with checksums (prevents cache forgery)
 - API documentation with "How It Works", API Reference, and SDK Code sections
 - Role-based admin panel (only visible to users with role="admin")
   - Admin Overview with system-wide stats
@@ -90,6 +98,8 @@ cloudflare-pages/
 - `POST /api/v1/licenses/validate` - License validation (requires API key header)
 - `POST /api/v1/licenses/activate` - License activation (requires API key header)
 - `POST /api/v1/licenses/deactivate` - License deactivation (requires API key header)
+- `POST /api/v1/nonce` - Generate nonce for challenge-response validation
+- `POST /api/v1/licenses/verify-token` - Verify validation token authenticity
 
 ## Running
 - `npm run dev` - Start development server

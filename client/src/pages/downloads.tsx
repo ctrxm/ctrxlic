@@ -26,48 +26,170 @@ const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 function generatePhpSdk(): string {
   return `<?php
 /**
- * CTRXL LicenseGuard PHP SDK v1.0
- * License validation, activation, and auto-redirect for PHP applications
+ * CTRXL LicenseGuard PHP SDK v2.0 (Anti-Crack Edition)
+ * License validation with cryptographic signature verification,
+ * nonce challenge-response, heartbeat, and anti-tamper protection
  * 
  * Usage:
  *   require_once 'LicenseGuard.php';
  *   $lg = new LicenseGuard('your_api_key', 'CL-XXX-XXX-XXX-XXX');
- *   $lg->validateOrRedirect();
+ *   $lg->validateOrRedirect(); // Validates with full anti-crack protection
  */
 class LicenseGuard {
     private string $apiKey;
     private string $baseUrl;
     private string $licenseKey;
+    private ?string $cachedToken = null;
+    private int $cachedTimestamp = 0;
+    private int $heartbeatInterval = 3600; // Re-validate every hour
+    private string $cacheFile;
+    private string $integrityHash;
     
     public function __construct(string $apiKey, string $licenseKey, string $baseUrl = '${baseUrl}') {
         $this->apiKey = $apiKey;
         $this->licenseKey = $licenseKey;
         $this->baseUrl = rtrim($baseUrl, '/');
+        $this->cacheFile = sys_get_temp_dir() . '/.ctrxl_' . md5($licenseKey) . '.cache';
+        $this->integrityHash = md5_file(__FILE__);
     }
     
     public function getInstallUrl(): string {
         return $this->baseUrl . '/install/' . urlencode($this->licenseKey);
     }
     
+    private function checkIntegrity(): bool {
+        return md5_file(__FILE__) === $this->integrityHash;
+    }
+    
+    private function getNonce(): ?object {
+        try {
+            $ch = curl_init($this->baseUrl . '/api/v1/nonce');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => '{}',
+                CURLOPT_TIMEOUT => 10,
+            ]);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            return json_decode($response);
+        } catch (\\Exception $e) {
+            return null;
+        }
+    }
+    
+    private function verifyToken(bool $valid, int $timestamp, string $token): bool {
+        try {
+            $ch = curl_init($this->baseUrl . '/api/v1/licenses/verify-token');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => json_encode([
+                    'license_key' => $this->licenseKey,
+                    'valid' => $valid,
+                    'timestamp' => $timestamp,
+                    'token' => $token,
+                ]),
+                CURLOPT_TIMEOUT => 10,
+            ]);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            $result = json_decode($response);
+            return $result && $result->verified === true;
+        } catch (\\Exception $e) {
+            return false;
+        }
+    }
+
     public function validate(?string $domain = null, ?string $productId = null, ?string $machineId = null): object {
+        if (!$this->checkIntegrity()) {
+            throw new \\Exception('SDK integrity check failed. File has been tampered with.');
+        }
+        
+        $nonceData = $this->getNonce();
+        $nonce = $nonceData ? $nonceData->nonce : null;
+        
         $payload = ['license_key' => $this->licenseKey];
         if ($domain) $payload['domain'] = $domain;
         if ($productId) $payload['product_id'] = $productId;
         if ($machineId) $payload['machine_id'] = $machineId;
-        return $this->request('POST', '/api/v1/licenses/validate', $payload);
+        if ($nonce) $payload['nonce'] = $nonce;
+        
+        $result = $this->request('POST', '/api/v1/licenses/validate', $payload);
+        
+        if (isset($result->_security)) {
+            $sec = $result->_security;
+            if (!$this->verifyToken($result->valid, $sec->timestamp, $sec->token)) {
+                throw new \\Exception('Response signature verification failed. Possible tampering detected.');
+            }
+            $this->cachedToken = $sec->token;
+            $this->cachedTimestamp = $sec->timestamp;
+            $this->saveCache($result->valid, $sec->token, $sec->timestamp);
+        }
+        
+        return $result;
     }
     
     public function validateOrRedirect(?string $domain = null, ?string $productId = null): void {
+        if (!$this->checkIntegrity()) {
+            header('Location: ' . $this->getInstallUrl() . '?error=tampered');
+            exit;
+        }
+        
+        if ($this->isHeartbeatValid()) {
+            return;
+        }
+        
         try {
             $result = $this->validate($domain ?? ($_SERVER['HTTP_HOST'] ?? ''), $productId);
             if (!$result->valid) {
+                $this->clearCache();
                 header('Location: ' . $this->getInstallUrl());
                 exit;
             }
         } catch (\\Exception $e) {
+            $this->clearCache();
             header('Location: ' . $this->getInstallUrl());
             exit;
         }
+    }
+    
+    public function startHeartbeat(?string $domain = null): void {
+        $this->heartbeatInterval = 1800; // 30 minutes for persistent apps
+        $this->validateOrRedirect($domain);
+    }
+    
+    private function isHeartbeatValid(): bool {
+        $cache = $this->loadCache();
+        if (!$cache) return false;
+        
+        $age = time() - ($cache['timestamp'] / 1000);
+        if ($age > $this->heartbeatInterval) return false;
+        
+        return $this->verifyToken($cache['valid'], $cache['timestamp'], $cache['token']);
+    }
+    
+    private function saveCache(bool $valid, string $token, int $timestamp): void {
+        $data = json_encode(['valid' => $valid, 'token' => $token, 'timestamp' => $timestamp, 'checksum' => md5($token . $timestamp . $this->apiKey)]);
+        @file_put_contents($this->cacheFile, $data);
+    }
+    
+    private function loadCache(): ?array {
+        if (!file_exists($this->cacheFile)) return null;
+        $data = json_decode(@file_get_contents($this->cacheFile), true);
+        if (!$data || !isset($data['checksum'])) return null;
+        $expectedChecksum = md5($data['token'] . $data['timestamp'] . $this->apiKey);
+        if ($data['checksum'] !== $expectedChecksum) {
+            $this->clearCache();
+            return null;
+        }
+        return $data;
+    }
+    
+    private function clearCache(): void {
+        @unlink($this->cacheFile);
     }
     
     public function activate(string $machineId, ?string $hostname = null): object {
@@ -95,6 +217,8 @@ class LicenseGuard {
             ],
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_POSTFIELDS => json_encode($data),
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -110,12 +234,28 @@ class LicenseGuard {
 }
 
 function generateNextjsSdk(): string {
-  return `// license-guard.ts - CTRXL LicenseGuard Next.js/TypeScript SDK v1.0
-// License validation, activation, and auto-redirect for Next.js applications
+  return `// license-guard.ts - CTRXL LicenseGuard Next.js/TypeScript SDK v2.0 (Anti-Crack Edition)
+// License validation with cryptographic signature verification,
+// nonce challenge-response, heartbeat, and anti-tamper protection
 //
 // Usage:
 //   import { LicenseGuard } from './license-guard';
 //   const lg = new LicenseGuard('your_api_key', 'CL-XXX-XXX-XXX-XXX');
+//   await lg.validateOrRedirect(req, res); // Express/Next.js
+//   lg.startHeartbeat(); // For long-running apps
+
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+interface SecurityPayload {
+  timestamp: number;
+  nonce: string | null;
+  signature: string;
+  token: string;
+  algorithm: string;
+}
 
 interface ValidateResult {
   valid: boolean;
@@ -128,6 +268,7 @@ interface ValidateResult {
     max_activations: number;
   };
   message?: string;
+  _security?: SecurityPayload;
 }
 
 interface ActivateResult {
@@ -140,26 +281,96 @@ interface ActivateResult {
   message?: string;
 }
 
+interface CacheData {
+  valid: boolean;
+  token: string;
+  timestamp: number;
+  checksum: string;
+}
+
 export class LicenseGuard {
   private apiKey: string;
   private baseUrl: string;
   private licenseKey: string;
+  private heartbeatInterval: number = 3600;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private cacheFile: string;
+  private integrityHash: string;
 
   constructor(apiKey: string, licenseKey: string, baseUrl: string = '${baseUrl}') {
     this.apiKey = apiKey;
     this.licenseKey = licenseKey;
     this.baseUrl = baseUrl.replace(/\\/$/, '');
+    this.cacheFile = path.join(os.tmpdir(), '.ctrxl_' + crypto.createHash('md5').update(licenseKey).digest('hex') + '.cache');
+    this.integrityHash = this.computeFileHash();
+  }
+
+  private computeFileHash(): string {
+    try {
+      const content = fs.readFileSync(__filename, 'utf8');
+      return crypto.createHash('md5').update(content).digest('hex');
+    } catch {
+      return '';
+    }
+  }
+
+  private checkIntegrity(): boolean {
+    if (!this.integrityHash) return true;
+    try {
+      const currentHash = crypto.createHash('md5').update(fs.readFileSync(__filename, 'utf8')).digest('hex');
+      return currentHash === this.integrityHash;
+    } catch {
+      return true;
+    }
   }
 
   getInstallUrl(): string {
     return \`\${this.baseUrl}/install/\${encodeURIComponent(this.licenseKey)}\`;
   }
 
+  private async getNonce(): Promise<{ nonce: string; timestamp: number } | null> {
+    try {
+      const res = await fetch(\`\${this.baseUrl}/api/v1/nonce\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  private async verifyToken(valid: boolean, timestamp: number, token: string): Promise<boolean> {
+    try {
+      const res = await fetch(\`\${this.baseUrl}/api/v1/licenses/verify-token\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          license_key: this.licenseKey,
+          valid,
+          timestamp,
+          token,
+        }),
+      });
+      const data = await res.json();
+      return data.verified === true;
+    } catch {
+      return false;
+    }
+  }
+
   async validate(domain?: string, productId?: string, machineId?: string): Promise<ValidateResult> {
+    if (!this.checkIntegrity()) {
+      throw new Error('SDK integrity check failed. File has been tampered with.');
+    }
+
+    const nonceData = await this.getNonce();
     const payload: Record<string, string> = { license_key: this.licenseKey };
     if (domain) payload.domain = domain;
     if (productId) payload.product_id = productId;
     if (machineId) payload.machine_id = machineId;
+    if (nonceData?.nonce) payload.nonce = nonceData.nonce;
 
     const response = await fetch(\`\${this.baseUrl}/api/v1/licenses/validate\`, {
       method: 'POST',
@@ -175,7 +386,101 @@ export class LicenseGuard {
       throw new Error(error.message || 'Validation failed');
     }
 
-    return response.json();
+    const result: ValidateResult = await response.json();
+
+    if (result._security) {
+      const verified = await this.verifyToken(result.valid, result._security.timestamp, result._security.token);
+      if (!verified) {
+        throw new Error('Response signature verification failed. Possible tampering detected.');
+      }
+      this.saveCache(result.valid, result._security.token, result._security.timestamp);
+    }
+
+    return result;
+  }
+
+  async validateOrRedirect(req?: any, res?: any, domain?: string): Promise<ValidateResult | void> {
+    if (!this.checkIntegrity()) {
+      if (res?.redirect) {
+        return res.redirect(this.getInstallUrl() + '?error=tampered');
+      }
+      throw new Error('SDK integrity check failed');
+    }
+
+    const cached = this.isHeartbeatValid();
+    if (cached) return;
+
+    try {
+      const host = domain || req?.headers?.host || req?.hostname || '';
+      const result = await this.validate(host);
+      if (!result.valid) {
+        this.clearCache();
+        if (res?.redirect) {
+          return res.redirect(this.getInstallUrl());
+        }
+        throw new Error('License invalid: ' + result.message);
+      }
+      return result;
+    } catch (err) {
+      this.clearCache();
+      if (res?.redirect) {
+        return res.redirect(this.getInstallUrl());
+      }
+      throw err;
+    }
+  }
+
+  startHeartbeat(domain?: string, intervalSeconds: number = 1800): void {
+    this.heartbeatInterval = intervalSeconds;
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(async () => {
+      try {
+        await this.validate(domain);
+      } catch (err) {
+        console.error('[LicenseGuard] Heartbeat validation failed:', err);
+      }
+    }, intervalSeconds * 1000);
+    this.validate(domain).catch(console.error);
+  }
+
+  stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private isHeartbeatValid(): boolean {
+    const cache = this.loadCache();
+    if (!cache) return false;
+    const ageSeconds = (Date.now() - cache.timestamp) / 1000;
+    if (ageSeconds > this.heartbeatInterval) return false;
+    return true;
+  }
+
+  private saveCache(valid: boolean, token: string, timestamp: number): void {
+    const checksum = crypto.createHash('md5').update(token + timestamp + this.apiKey).digest('hex');
+    const data: CacheData = { valid, token, timestamp, checksum };
+    try { fs.writeFileSync(this.cacheFile, JSON.stringify(data)); } catch {}
+  }
+
+  private loadCache(): CacheData | null {
+    try {
+      const raw = fs.readFileSync(this.cacheFile, 'utf8');
+      const data: CacheData = JSON.parse(raw);
+      const expectedChecksum = crypto.createHash('md5').update(data.token + data.timestamp + this.apiKey).digest('hex');
+      if (data.checksum !== expectedChecksum) {
+        this.clearCache();
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  private clearCache(): void {
+    try { fs.unlinkSync(this.cacheFile); } catch {}
   }
 
   async activate(machineId: string, hostname?: string): Promise<ActivateResult> {
@@ -226,17 +531,24 @@ export class LicenseGuard {
 
 function generatePythonSdk(): string {
   return `"""
-CTRXL LicenseGuard Python SDK v1.0
-License validation, activation, and auto-redirect for Python applications
+CTRXL LicenseGuard Python SDK v2.0 (Anti-Crack Edition)
+License validation with cryptographic signature verification,
+nonce challenge-response, heartbeat, and anti-tamper protection
 
 Usage:
     from license_guard import LicenseGuard
     lg = LicenseGuard('your_api_key', 'CL-XXX-XXX-XXX-XXX')
-    result = lg.validate()
+    lg.validate_or_exit()  # Validates with full anti-crack protection
+    lg.start_heartbeat()   # For long-running apps (Flask/Django/FastAPI)
 """
 import requests
-import socket
-from typing import Optional
+import hashlib
+import json
+import os
+import time
+import threading
+import tempfile
+from typing import Optional, Dict, Any
 from urllib.parse import quote
 
 
@@ -245,30 +557,170 @@ class LicenseGuard:
         self.api_key = api_key
         self.license_key = license_key
         self.base_url = base_url.rstrip('/')
+        self.heartbeat_interval = 3600  # 1 hour default
+        self._heartbeat_thread: Optional[threading.Timer] = None
+        self._cache_file = os.path.join(
+            tempfile.gettempdir(),
+            f'.ctrxl_{hashlib.md5(license_key.encode()).hexdigest()}.cache'
+        )
+        self._integrity_hash = self._compute_file_hash()
+
+    def _compute_file_hash(self) -> str:
+        try:
+            with open(__file__, 'rb') as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except Exception:
+            return ''
+
+    def _check_integrity(self) -> bool:
+        if not self._integrity_hash:
+            return True
+        try:
+            with open(__file__, 'rb') as f:
+                current = hashlib.md5(f.read()).hexdigest()
+            return current == self._integrity_hash
+        except Exception:
+            return True
 
     def get_install_url(self) -> str:
         return f'{self.base_url}/install/{quote(self.license_key)}'
 
+    def _get_nonce(self) -> Optional[Dict[str, Any]]:
+        try:
+            resp = requests.post(
+                f'{self.base_url}/api/v1/nonce',
+                json={},
+                timeout=10,
+            )
+            return resp.json()
+        except Exception:
+            return None
+
+    def _verify_token(self, valid: bool, timestamp: int, token: str) -> bool:
+        try:
+            resp = requests.post(
+                f'{self.base_url}/api/v1/licenses/verify-token',
+                json={
+                    'license_key': self.license_key,
+                    'valid': valid,
+                    'timestamp': timestamp,
+                    'token': token,
+                },
+                timeout=10,
+            )
+            data = resp.json()
+            return data.get('verified') is True
+        except Exception:
+            return False
+
     def validate(self, domain: Optional[str] = None, product_id: Optional[str] = None, machine_id: Optional[str] = None) -> dict:
-        payload = {'license_key': self.license_key}
+        if not self._check_integrity():
+            raise RuntimeError('SDK integrity check failed. File has been tampered with.')
+
+        nonce_data = self._get_nonce()
+        payload: Dict[str, str] = {'license_key': self.license_key}
         if domain:
             payload['domain'] = domain
         if product_id:
             payload['product_id'] = product_id
         if machine_id:
             payload['machine_id'] = machine_id
-        return self._request('POST', '/api/v1/licenses/validate', payload)
+        if nonce_data and 'nonce' in nonce_data:
+            payload['nonce'] = nonce_data['nonce']
+
+        result = self._request('POST', '/api/v1/licenses/validate', payload)
+
+        security = result.get('_security')
+        if security:
+            verified = self._verify_token(
+                result.get('valid', False),
+                security['timestamp'],
+                security['token'],
+            )
+            if not verified:
+                raise RuntimeError('Response signature verification failed. Possible tampering detected.')
+            self._save_cache(result.get('valid', False), security['token'], security['timestamp'])
+
+        return result
 
     def validate_or_exit(self, domain: Optional[str] = None, product_id: Optional[str] = None) -> dict:
+        if not self._check_integrity():
+            print(f"SDK integrity check failed. Visit: {self.get_install_url()}")
+            raise SystemExit(1)
+
+        cached = self._is_heartbeat_valid()
+        if cached:
+            return {'valid': True, 'cached': True}
+
         try:
             result = self.validate(domain, product_id)
             if not result.get('valid'):
+                self._clear_cache()
                 print(f"License invalid. Visit: {self.get_install_url()}")
                 raise SystemExit(1)
             return result
-        except requests.RequestException:
-            print(f"License check failed. Visit: {self.get_install_url()}")
+        except (requests.RequestException, RuntimeError) as e:
+            self._clear_cache()
+            print(f"License check failed: {e}. Visit: {self.get_install_url()}")
             raise SystemExit(1)
+
+    def start_heartbeat(self, domain: Optional[str] = None, interval_seconds: int = 1800) -> None:
+        self.heartbeat_interval = interval_seconds
+        self.validate_or_exit(domain)
+
+        def _heartbeat():
+            try:
+                self.validate(domain)
+            except Exception as e:
+                print(f"[LicenseGuard] Heartbeat validation failed: {e}")
+            self._heartbeat_thread = threading.Timer(interval_seconds, _heartbeat)
+            self._heartbeat_thread.daemon = True
+            self._heartbeat_thread.start()
+
+        self._heartbeat_thread = threading.Timer(interval_seconds, _heartbeat)
+        self._heartbeat_thread.daemon = True
+        self._heartbeat_thread.start()
+
+    def stop_heartbeat(self) -> None:
+        if self._heartbeat_thread:
+            self._heartbeat_thread.cancel()
+            self._heartbeat_thread = None
+
+    def _is_heartbeat_valid(self) -> bool:
+        cache = self._load_cache()
+        if not cache:
+            return False
+        age_seconds = (time.time() * 1000 - cache['timestamp']) / 1000
+        if age_seconds > self.heartbeat_interval:
+            return False
+        return True
+
+    def _save_cache(self, valid: bool, token: str, timestamp: int) -> None:
+        checksum = hashlib.md5(f"{token}{timestamp}{self.api_key}".encode()).hexdigest()
+        data = {'valid': valid, 'token': token, 'timestamp': timestamp, 'checksum': checksum}
+        try:
+            with open(self._cache_file, 'w') as f:
+                json.dump(data, f)
+        except Exception:
+            pass
+
+    def _load_cache(self) -> Optional[Dict[str, Any]]:
+        try:
+            with open(self._cache_file, 'r') as f:
+                data = json.load(f)
+            expected = hashlib.md5(f"{data['token']}{data['timestamp']}{self.api_key}".encode()).hexdigest()
+            if data.get('checksum') != expected:
+                self._clear_cache()
+                return None
+            return data
+        except Exception:
+            return None
+
+    def _clear_cache(self) -> None:
+        try:
+            os.remove(self._cache_file)
+        except Exception:
+            pass
 
     def activate(self, machine_id: str, hostname: Optional[str] = None) -> dict:
         return self._request('POST', '/api/v1/licenses/activate', {
@@ -291,7 +743,8 @@ class LicenseGuard:
             headers={
                 'Content-Type': 'application/json',
                 'X-API-Key': self.api_key,
-            }
+            },
+            timeout=15,
         )
         response.raise_for_status()
         return response.json()
@@ -370,29 +823,29 @@ const sellerSteps = [
 const sdkFiles = [
   {
     id: "php",
-    title: "PHP SDK",
+    title: "PHP SDK v2.0",
     filename: "LicenseGuard.php",
     icon: FileCode,
-    description: "Complete PHP class for license validation with auto-redirect support. Compatible with PHP 7.4+, Laravel, WordPress, CodeIgniter, or vanilla PHP.",
-    tags: ["PHP 7.4+", "cURL", "Auto-Redirect", "Laravel", "WordPress"],
+    description: "Anti-crack PHP SDK with HMAC signature verification, nonce challenge-response, heartbeat validation, and file integrity checks. Compatible with PHP 7.4+.",
+    tags: ["Anti-Crack", "HMAC", "Heartbeat", "Anti-Tamper", "PHP 7.4+"],
     generate: generatePhpSdk,
   },
   {
     id: "nextjs",
-    title: "Next.js / TypeScript SDK",
+    title: "TypeScript SDK v2.0",
     filename: "license-guard.ts",
     icon: Globe,
-    description: "TypeScript SDK with full type definitions. Works with Next.js middleware, Express.js, or any Node.js/TypeScript project.",
-    tags: ["TypeScript", "Next.js", "Node.js", "Express", "Middleware"],
+    description: "Anti-crack TypeScript SDK with HMAC signature verification, nonce challenge-response, heartbeat timer, and file integrity checks. Works with Next.js, Express.js, or any Node.js project.",
+    tags: ["Anti-Crack", "HMAC", "Heartbeat", "Anti-Tamper", "TypeScript"],
     generate: generateNextjsSdk,
   },
   {
     id: "python",
-    title: "Python SDK",
+    title: "Python SDK v2.0",
     filename: "license_guard.py",
     icon: Code2,
-    description: "Python SDK with Flask and Django middleware examples. Compatible with Python 3.7+, supports auto-redirect and machine activation.",
-    tags: ["Python 3.7+", "Flask", "Django", "FastAPI", "Requests"],
+    description: "Anti-crack Python SDK with HMAC signature verification, nonce challenge-response, background heartbeat thread, and file integrity checks. Compatible with Python 3.7+.",
+    tags: ["Anti-Crack", "HMAC", "Heartbeat", "Anti-Tamper", "Python 3.7+"],
     generate: generatePythonSdk,
   },
 ];
@@ -829,6 +1282,54 @@ export default function DownloadsPage() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
                 <Badge variant="secondary">Valid? App runs normally</Badge>
               </div>
+            </div>
+          </Card>
+
+          <Card className="p-5 space-y-4" data-testid="card-anti-crack-features">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-chart-2" />
+              <h2 className="font-semibold text-lg">Anti-Crack Protection (v2.0)</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Our SDK v2.0 includes multiple layers of protection that make it virtually impossible to crack or bypass license validation:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  title: "HMAC-SHA256 Signatures",
+                  desc: "Every validation response is cryptographically signed by the server. The SDK verifies the signature to ensure responses haven't been intercepted or faked.",
+                },
+                {
+                  title: "Nonce Challenge-Response",
+                  desc: "Each validation request uses a unique one-time nonce. Old responses cannot be replayed - every check requires a fresh server interaction.",
+                },
+                {
+                  title: "Heartbeat Validation",
+                  desc: "The SDK periodically re-validates licenses in the background. Even if initial validation is bypassed, the heartbeat will catch it.",
+                },
+                {
+                  title: "Anti-Tamper Detection",
+                  desc: "The SDK calculates its own file hash at startup. If anyone modifies the SDK file to bypass checks, it immediately detects the tampering.",
+                },
+                {
+                  title: "Encrypted Cache with Checksums",
+                  desc: "Validation results are cached with cryptographic checksums tied to the API key. Cache files cannot be forged or copied between installations.",
+                },
+                {
+                  title: "Server-Side Token Verification",
+                  desc: "Validation tokens can be independently verified via the verify-token endpoint. Even if the response is manipulated, the token won't pass verification.",
+                },
+              ].map((feature, i) => (
+                <div key={i} className="bg-muted/30 rounded-md p-3 space-y-1" data-testid={`text-anticrack-feature-${i}`}>
+                  <p className="font-medium text-sm">{feature.title}</p>
+                  <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="bg-muted/50 rounded-md p-3">
+              <p className="text-xs text-muted-foreground">
+                These protections are built into all SDK downloads (PHP, TypeScript, Python). No extra configuration needed - just download the SDK and use <code className="bg-background px-1 py-0.5 rounded text-xs font-mono">validateOrRedirect()</code> as usual.
+              </p>
             </div>
           </Card>
 

@@ -41,3 +41,8 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_database:1.0.0"]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+LICENSE_SIGNING_SECRET = "7b521756806694266637e22475cf0a65f09c8684a1f82f6cfa06cdf68997c5b91aea89218fa3863a5b1ed665f4ac406ea4b1240a9bd84757623a146e4b789502"
