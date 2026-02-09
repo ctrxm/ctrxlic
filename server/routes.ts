@@ -55,7 +55,8 @@ export async function registerRoutes(
         { authType: "local", userId: user.id, claims: { sub: user.id } },
         (err: any) => {
           if (err) return res.status(500).json({ message: "Login failed" });
-          res.json(user);
+          const { passwordHash, ...safeUser } = user;
+          res.json(safeUser);
         }
       );
     } catch (error: any) {
@@ -84,7 +85,8 @@ export async function registerRoutes(
         { authType: "local", userId: user.id, claims: { sub: user.id } },
         (err: any) => {
           if (err) return res.status(500).json({ message: "Login failed" });
-          res.json(user);
+          const { passwordHash, ...safeUser } = user;
+          res.json(safeUser);
         }
       );
     } catch (error: any) {
