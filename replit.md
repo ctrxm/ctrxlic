@@ -82,7 +82,9 @@ shared/
 ## Design
 - Dark/light mode with Inter font family
 - Corporate modern design with blue primary color
-- Sidebar navigation for authenticated users (Shadcn sidebar)
+- Sidebar navigation with colored icons per menu item (Shadcn sidebar)
+- Dashboard with gradient hero banner, colored stat cards, quick action cards, and overview summary
+- CSS animations: fade-in, fade-in-scale, slide-in-left with stagger delays for smooth page loads
 - Brand: CTRXL LICENSE
 
 ## User Preferences

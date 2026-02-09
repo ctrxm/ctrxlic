@@ -12,6 +12,7 @@ import {
   Download,
   ScrollText,
   PieChart,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,24 +29,25 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 
 const mainItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Licenses", url: "/licenses", icon: Key },
-  { title: "API Keys", url: "/api-keys", icon: ShieldCheck },
-  { title: "Statistics", url: "/statistics", icon: BarChart3 },
-  { title: "API Docs", url: "/docs", icon: Code2 },
-  { title: "SDK Downloads", url: "/downloads", icon: Download },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "text-blue-500" },
+  { title: "Products", url: "/products", icon: Package, color: "text-cyan-500" },
+  { title: "Licenses", url: "/licenses", icon: Key, color: "text-emerald-500" },
+  { title: "API Keys", url: "/api-keys", icon: ShieldCheck, color: "text-violet-500" },
+  { title: "Statistics", url: "/statistics", icon: BarChart3, color: "text-amber-500" },
+  { title: "API Docs", url: "/docs", icon: Code2, color: "text-orange-500" },
+  { title: "SDK Downloads", url: "/downloads", icon: Download, color: "text-teal-500" },
 ];
 
 const adminItems = [
-  { title: "Overview", url: "/admin/overview", icon: PieChart },
-  { title: "All Users", url: "/admin/users", icon: Users },
-  { title: "All Licenses", url: "/admin/licenses", icon: Key },
-  { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "Overview", url: "/admin/overview", icon: PieChart, color: "text-rose-500" },
+  { title: "All Users", url: "/admin/users", icon: Users, color: "text-indigo-500" },
+  { title: "All Licenses", url: "/admin/licenses", icon: Key, color: "text-pink-500" },
+  { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText, color: "text-slate-500" },
+  { title: "Settings", url: "/admin/settings", icon: Settings, color: "text-gray-500" },
 ];
 
 export function AppSidebar() {
@@ -61,87 +63,107 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-            <Key className="h-4 w-4 text-primary-foreground" />
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-md bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+            <Key className="h-4.5 w-4.5 text-white" />
           </div>
           <div>
-            <span className="font-semibold text-sm tracking-tight" data-testid="text-sidebar-brand">
+            <span className="font-bold text-sm tracking-tight" data-testid="text-sidebar-brand">
               CTRXL LICENSE
             </span>
-            <p className="text-xs text-muted-foreground">License Manager</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">License Manager</p>
           </div>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+            Main Menu
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url || location.startsWith(item.url + "/")}
-                  >
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {mainItems.map((item) => {
+                const isActive = location === item.url || location.startsWith(item.url + "/");
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                    >
+                      <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                        <item.icon className={`h-4 w-4 transition-colors duration-150 ${isActive ? "text-primary" : item.color}`} />
+                        <span className="font-medium">{item.title}</span>
+                        {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary opacity-70" />}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location === item.url || location.startsWith(item.url + "/")}
-                    >
-                      <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+                <span className="flex items-center gap-1.5">
+                  Admin
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0 leading-tight">PRO</Badge>
+                </span>
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminItems.map((item) => {
+                    const isActive = location === item.url || location.startsWith(item.url + "/");
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                        >
+                          <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                            <item.icon className={`h-4 w-4 transition-colors duration-150 ${isActive ? "text-primary" : item.color}`} />
+                            <span className="font-medium">{item.title}</span>
+                            {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary opacity-70" />}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
       </SidebarContent>
       <SidebarFooter className="p-3">
+        <SidebarSeparator className="mb-3" />
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-9 w-9 border-2 border-primary/20">
             <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-medium truncate" data-testid="text-user-name">
+              <p className="text-sm font-semibold truncate" data-testid="text-user-name">
                 {user?.firstName} {user?.lastName}
               </p>
-              {isAdmin && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Admin</Badge>}
+              {isAdmin && <Badge variant="default" className="text-[9px] px-1.5 py-0">Admin</Badge>}
             </div>
-            <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
+            <p className="text-[11px] text-muted-foreground truncate" data-testid="text-user-email">
               {user?.email}
             </p>
           </div>
-          <SidebarMenuButton
-            className="h-8 w-8 p-0 flex items-center justify-center"
+          <Button
+            size="icon"
+            variant="ghost"
             data-testid="button-logout"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4" />
-          </SidebarMenuButton>
+          </Button>
         </div>
       </SidebarFooter>
     </Sidebar>
