@@ -15,18 +15,30 @@ client/src/
   pages/         - All page components (landing, auth, dashboard, products, licenses, api-keys, statistics, docs, downloads, admin-*, install)
   components/    - Reusable components (app-sidebar, stat-card, theme-provider, theme-toggle)
   hooks/         - Custom hooks (use-auth, use-toast)
-  lib/           - Utility functions (queryClient, utils, auth-utils)
+  lib/           - Utility functions (queryClient with VITE_API_URL support, utils, auth-utils)
 
 server/
-  index.ts       - Express app setup
+  app.ts         - Express app setup (exported for Vercel serverless)
+  index.ts       - Server entry point (imports app.ts, starts listening)
   routes.ts      - All API routes + public license validation API + email/password auth + admin routes
   storage.ts     - Database storage layer (DatabaseStorage)
   db.ts          - Database connection
   replit_integrations/auth/ - Replit Auth module
 
+api/
+  index.ts       - Vercel serverless function entry point
+
 shared/
   schema.ts      - Drizzle schema definitions (products, licenses, activations, apiKeys, auditLogs)
   models/auth.ts - Auth schema (users with passwordHash, role, sessions)
+
+script/
+  build.ts              - Full build script (frontend + server)
+  build-frontend.sh     - Frontend-only build for Vercel
+  build-cloudflare.sh   - Frontend build for Cloudflare Pages (adds _redirects)
+
+cloudflare-pages/
+  _redirects     - SPA routing config for Cloudflare Pages
 ```
 
 ## Key Features
