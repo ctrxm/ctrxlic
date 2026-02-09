@@ -328,10 +328,104 @@ export async function registerRoutes(
     }
   });
 
-  // Admin routes
-  app.get("/api/admin/users", isAuthenticated, async (req, res) => {
+  const isAdmin = async (req: any, res: any, next: any) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const result = await storage.getAllUsers();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/role", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { role } = req.body;
+      if (!role || !["admin", "user"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be 'admin' or 'user'" });
+      }
+      const targetUser = await storage.getUser(req.params.id as string);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      await storage.updateUserRole(req.params.id as string, role);
+      await storage.createAuditLog({
+        action: "admin.user.role_changed",
+        entityType: "user",
+        entityId: req.params.id as string,
+        userId: getUserId(req),
+        details: { newRole: role, targetEmail: targetUser.email },
+      });
+      res.json({ message: "Role updated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserId(req);
+      if (adminId === req.params.id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      const targetUser = await storage.getUser(req.params.id as string);
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      await storage.deleteUser(req.params.id as string);
+      await storage.createAuditLog({
+        action: "admin.user.deleted",
+        entityType: "user",
+        entityId: req.params.id as string,
+        userId: adminId,
+        details: { deletedEmail: targetUser.email },
+      });
+      res.json({ message: "User deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/audit-logs", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getAuditLogs(limit);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/licenses", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await storage.getAllLicenses();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/products", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await storage.getAllProducts();
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

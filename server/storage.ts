@@ -41,6 +41,13 @@ export interface IStorage {
   getDashboardStats(userId: string): Promise<any>;
   getStatistics(userId: string): Promise<any>;
   getAllUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User | undefined>;
+  updateUserRole(id: string, role: string): Promise<void>;
+  deleteUser(id: string): Promise<void>;
+  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  getAdminStats(): Promise<any>;
+  getAllLicenses(): Promise<(License & { productName?: string })[]>;
+  getAllProducts(): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -283,6 +290,80 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async updateUserRole(id: string, role: string): Promise<void> {
+    await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(apiKeys).where(eq(apiKeys.userId, id));
+    const userLicenses = await db.select().from(licenses).where(eq(licenses.userId, id));
+    for (const lic of userLicenses) {
+      await db.delete(activations).where(eq(activations.licenseId, lic.id));
+    }
+    await db.delete(licenses).where(eq(licenses.userId, id));
+    await db.delete(products).where(eq(products.createdBy, id));
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit);
+  }
+
+  async getAdminStats(): Promise<any> {
+    const allUsers = await db.select().from(users);
+    const allLicensesList = await db.select().from(licenses);
+    const allProductsList = await db.select().from(products);
+    const allApiKeysList = await db.select().from(apiKeys);
+    const totalActivations = allLicensesList.reduce((sum, l) => sum + (l.currentActivations || 0), 0);
+
+    return {
+      totalUsers: allUsers.length,
+      totalProducts: allProductsList.length,
+      totalLicenses: allLicensesList.length,
+      activeLicenses: allLicensesList.filter((l) => l.status === "active").length,
+      revokedLicenses: allLicensesList.filter((l) => l.status === "revoked").length,
+      expiredLicenses: allLicensesList.filter((l) => l.status === "expired").length,
+      totalApiKeys: allApiKeysList.length,
+      totalActivations,
+      adminUsers: allUsers.filter((u) => u.role === "admin").length,
+    };
+  }
+
+  async getAllLicenses(): Promise<(License & { productName?: string })[]> {
+    const result = await db
+      .select({
+        id: licenses.id,
+        licenseKey: licenses.licenseKey,
+        productId: licenses.productId,
+        userId: licenses.userId,
+        customerName: licenses.customerName,
+        customerEmail: licenses.customerEmail,
+        type: licenses.type,
+        status: licenses.status,
+        maxActivations: licenses.maxActivations,
+        currentActivations: licenses.currentActivations,
+        allowedDomains: licenses.allowedDomains,
+        expiresAt: licenses.expiresAt,
+        metadata: licenses.metadata,
+        createdAt: licenses.createdAt,
+        updatedAt: licenses.updatedAt,
+        productName: products.name,
+      })
+      .from(licenses)
+      .leftJoin(products, eq(licenses.productId, products.id))
+      .orderBy(desc(licenses.createdAt));
+    return result as (License & { productName?: string })[];
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return db.select().from(products).orderBy(desc(products.createdAt));
   }
 }
 

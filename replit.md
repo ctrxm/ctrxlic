@@ -12,21 +12,21 @@ CTRXL LICENSE is a full-featured software license management platform that allow
 ## Project Structure
 ```
 client/src/
-  pages/         - All page components (landing, auth, dashboard, products, licenses, api-keys, statistics, docs, admin, install)
+  pages/         - All page components (landing, auth, dashboard, products, licenses, api-keys, statistics, docs, downloads, admin-*, install)
   components/    - Reusable components (app-sidebar, stat-card, theme-provider, theme-toggle)
   hooks/         - Custom hooks (use-auth, use-toast)
   lib/           - Utility functions (queryClient, utils, auth-utils)
 
 server/
   index.ts       - Express app setup
-  routes.ts      - All API routes + public license validation API + email/password auth
+  routes.ts      - All API routes + public license validation API + email/password auth + admin routes
   storage.ts     - Database storage layer (DatabaseStorage)
   db.ts          - Database connection
   replit_integrations/auth/ - Replit Auth module
 
 shared/
   schema.ts      - Drizzle schema definitions (products, licenses, activations, apiKeys, auditLogs)
-  models/auth.ts - Auth schema (users with passwordHash, sessions)
+  models/auth.ts - Auth schema (users with passwordHash, role, sessions)
 ```
 
 ## Key Features
@@ -40,18 +40,31 @@ shared/
 - License activation/deactivation API
 - Statistics dashboard with charts
 - API documentation with PHP, Next.js, Python, and cURL examples
-- Admin panel with user management
+- SDK download page - downloadable PHP, Next.js/TypeScript, Python SDK files
+- Role-based admin panel (only visible to users with role="admin")
+  - Admin Overview with system-wide stats
+  - User management (promote/demote admin, delete users)
+  - All licenses view (across all users)
+  - Audit logs viewer
+  - Platform settings
 - Dual authentication: Replit Auth (OIDC) + email/password signup/login
 - Responsive landing page with mobile hamburger menu
 
 ## Database Schema
-- `users` - Auth users with optional passwordHash (supports both Replit Auth and local auth)
+- `users` - Auth users with optional passwordHash, role (default "user", can be "admin")
 - `sessions` - Auth sessions
 - `products` - Software products
 - `licenses` - License keys with type, status, activations, allowedDomains (text array)
 - `activations` - Machine activations per license
 - `api_keys` - API keys for external validation (cl_ prefix)
 - `audit_logs` - Action audit trail
+
+## Admin System
+- Users have a `role` column: "user" (default) or "admin"
+- Admin sidebar section only visible to users with role="admin"
+- Backend admin routes protected by `isAdmin` middleware
+- Admin routes: GET /api/admin/stats, GET /api/admin/users, PATCH /api/admin/users/:id/role, DELETE /api/admin/users/:id, GET /api/admin/audit-logs, GET /api/admin/licenses, GET /api/admin/products
+- Frontend admin pages redirect non-admin users to /dashboard
 
 ## Public Routes (no auth required)
 - `/` - Landing page
@@ -77,3 +90,4 @@ shared/
 - API key prefix: cl_
 - Brand name: CTRXL LICENSE
 - Domain binding feature for license validation
+- Unified dashboard with admin features only for admin-role users

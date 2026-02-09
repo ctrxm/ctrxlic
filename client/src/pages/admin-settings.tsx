@@ -1,15 +1,25 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Settings, Globe, Shield, Key } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function AdminSettingsPage() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  useEffect(() => {
+    if (user && user.role !== "admin") setLocation("/dashboard");
+  }, [user, setLocation]);
+
+  if (!user || user.role !== "admin") return null;
 
   return (
     <div className="p-6 space-y-6 max-w-[800px]">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-admin-settings-title">Settings</h1>
         <p className="text-muted-foreground mt-1">
           Configure your license management platform
         </p>
@@ -40,12 +50,11 @@ export default function AdminSettingsPage() {
           <div className="flex-1">
             <h3 className="font-semibold">Authentication</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Authentication is managed via Replit Auth with OpenID Connect
+              Dual authentication: Replit Auth (OpenID Connect) and email/password
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">Google</Badge>
-              <Badge variant="secondary">GitHub</Badge>
-              <Badge variant="secondary">Email</Badge>
+              <Badge variant="secondary">Replit Auth</Badge>
+              <Badge variant="secondary">Email/Password</Badge>
             </div>
           </div>
         </div>
@@ -59,10 +68,10 @@ export default function AdminSettingsPage() {
           <div className="flex-1">
             <h3 className="font-semibold">License Key Format</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              License keys are generated in the format: <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">LG-XXXX-XXXX-XXXX-XXXX</code>
+              License keys are generated in the format: <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">CL-XXX-XXX-XXX-XXX</code>
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Each segment uses uppercase alphanumeric characters for maximum entropy
+              4 segments of 3 uppercase alphanumeric characters
             </p>
           </div>
         </div>
@@ -76,13 +85,14 @@ export default function AdminSettingsPage() {
           <div className="flex-1">
             <h3 className="font-semibold">Platform</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              LicenseGuard v1.0 running on Replit
+              CTRXL LICENSE v1.0
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">PostgreSQL</Badge>
               <Badge variant="secondary">Express</Badge>
               <Badge variant="secondary">React</Badge>
               <Badge variant="secondary">Drizzle ORM</Badge>
+              <Badge variant="secondary">TypeScript</Badge>
             </div>
           </div>
         </div>

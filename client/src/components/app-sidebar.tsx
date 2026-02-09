@@ -9,6 +9,9 @@ import {
   Settings,
   LogOut,
   Users,
+  Download,
+  ScrollText,
+  PieChart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,6 +27,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 
 const mainItems = [
@@ -33,16 +37,22 @@ const mainItems = [
   { title: "API Keys", url: "/api-keys", icon: ShieldCheck },
   { title: "Statistics", url: "/statistics", icon: BarChart3 },
   { title: "API Docs", url: "/docs", icon: Code2 },
+  { title: "SDK Downloads", url: "/downloads", icon: Download },
 ];
 
 const adminItems = [
+  { title: "Overview", url: "/admin/overview", icon: PieChart },
   { title: "All Users", url: "/admin/users", icon: Users },
+  { title: "All Licenses", url: "/admin/licenses", icon: Key },
+  { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  const isAdmin = user?.role === "admin";
 
   const initials = user
     ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`.toUpperCase() || "U"
@@ -85,26 +95,28 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Admin</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url || location.startsWith(item.url + "/")}
-                  >
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url || location.startsWith(item.url + "/")}
+                    >
+                      <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-3">
         <div className="flex items-center gap-3">
@@ -113,9 +125,12 @@ export function AppSidebar() {
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" data-testid="text-user-name">
-              {user?.firstName} {user?.lastName}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">
+                {user?.firstName} {user?.lastName}
+              </p>
+              {isAdmin && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Admin</Badge>}
+            </div>
             <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
               {user?.email}
             </p>

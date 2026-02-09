@@ -18,7 +18,11 @@ import LicensesPage from "@/pages/licenses";
 import ApiKeysPage from "@/pages/api-keys";
 import StatisticsPage from "@/pages/statistics";
 import DocsPage from "@/pages/docs";
+import DownloadsPage from "@/pages/downloads";
+import AdminOverviewPage from "@/pages/admin-overview";
 import AdminUsersPage from "@/pages/admin-users";
+import AdminLicensesPage from "@/pages/admin-licenses";
+import AdminAuditLogsPage from "@/pages/admin-audit-logs";
 import AdminSettingsPage from "@/pages/admin-settings";
 import InstallPage from "@/pages/install";
 
@@ -45,7 +49,11 @@ function AuthenticatedLayout() {
               <Route path="/api-keys" component={ApiKeysPage} />
               <Route path="/statistics" component={StatisticsPage} />
               <Route path="/docs" component={DocsPage} />
+              <Route path="/downloads" component={DownloadsPage} />
+              <Route path="/admin/overview" component={AdminOverviewPage} />
               <Route path="/admin/users" component={AdminUsersPage} />
+              <Route path="/admin/licenses" component={AdminLicensesPage} />
+              <Route path="/admin/audit-logs" component={AdminAuditLogsPage} />
               <Route path="/admin/settings" component={AdminSettingsPage} />
               <Route path="/" component={DashboardPage} />
               <Route component={NotFound} />
