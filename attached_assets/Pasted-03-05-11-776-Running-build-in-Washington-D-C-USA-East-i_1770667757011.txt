@@ -1,0 +1,54 @@
+03:05:11.776 Running build in Washington, D.C., USA (East) – iad1
+03:05:11.777 Build machine configuration: 2 cores, 8 GB
+03:05:12.113 Cloning github.com/ctrxm/ctrxlic (Branch: main, Commit: 1d10b81)
+03:05:13.209 Cloning completed: 1.096s
+03:05:13.620 Restored build cache from previous deployment (DxPtpGcvm1MdHWHEqDwutbdRipxS)
+03:05:14.459 Running "vercel build"
+03:05:15.555 Vercel CLI 50.13.2
+03:05:16.262 Installing dependencies...
+03:05:17.817 
+03:05:17.817 up to date in 1s
+03:05:17.818 
+03:05:17.818 81 packages are looking for funding
+03:05:17.818   run `npm fund` for details
+03:05:18.527 [36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+03:05:18.967 transforming...
+03:05:19.866 
+03:05:19.867 A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+03:05:24.872 [32m✓[39m 2368 modules transformed.
+03:05:25.514 rendering chunks...
+03:05:25.533 computing gzip size...
+03:05:25.565 [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  2.47 kB[22m[1m[22m[2m │ gzip:   0.91 kB[22m
+03:05:25.565 [2m../dist/public/[22m[2massets/[22m[35mindex-YNGUB2DG.css  [39m[1m[2m 82.28 kB[22m[1m[22m[2m │ gzip:  13.25 kB[22m
+03:05:25.566 [2m../dist/public/[22m[2massets/[22m[36mindex-B98eu1Kd.js   [39m[1m[33m995.77 kB[39m[22m[2m │ gzip: 279.79 kB[22m
+03:05:25.566 [33m
+03:05:25.566 (!) Some chunks are larger than 500 kB after minification. Consider:
+03:05:25.566 - Using dynamic import() to code-split the application
+03:05:25.571 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+03:05:25.571 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+03:05:25.571 [32m✓ built in 7.01s[39m
+03:05:25.863 Using TypeScript 5.6.3 (local user-provided)
+03:05:31.638 server/routes.ts(163,48): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.638   Type 'string[]' is not assignable to type 'string'.
+03:05:31.639 server/routes.ts(167,35): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.639   Type 'string[]' is not assignable to type 'string'.
+03:05:31.639 server/routes.ts(235,48): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.639   Type 'string[]' is not assignable to type 'string'.
+03:05:31.639 server/routes.ts(239,41): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.639   Type 'string[]' is not assignable to type 'string'.
+03:05:31.639 server/routes.ts(243,9): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+03:05:31.640   Type 'string[]' is not assignable to type 'string'.
+03:05:31.640 server/routes.ts(255,48): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.640   Type 'string[]' is not assignable to type 'string'.
+03:05:31.640 server/routes.ts(259,35): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.640   Type 'string[]' is not assignable to type 'string'.
+03:05:31.640 server/routes.ts(315,34): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+03:05:31.640   Type 'string[]' is not assignable to type 'string'.
+03:05:31.641 
+03:05:34.082 Build Completed in /vercel/output [18s]
+03:05:34.310 Deploying outputs...
+03:05:49.701 Deployment completed
+03:05:50.740 Creating build cache...
+03:06:08.270 Created build cache: 17.525s
+03:06:08.270 Uploading build cache [74.77 MB]
+03:06:10.144 Build cache uploaded: 1.877s

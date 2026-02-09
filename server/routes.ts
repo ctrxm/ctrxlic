@@ -160,11 +160,12 @@ export async function registerRoutes(
   app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const product = await storage.getProduct(req.params.id);
+      const id = req.params.id as string;
+      const product = await storage.getProduct(id);
       if (!product || product.createdBy !== userId) {
         return res.status(404).json({ message: "Product not found" });
       }
-      await storage.deleteProduct(req.params.id);
+      await storage.deleteProduct(id);
       res.json({ message: "Product deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -232,15 +233,16 @@ export async function registerRoutes(
   app.patch("/api/licenses/:id/revoke", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const license = await storage.getLicense(req.params.id);
+      const id = req.params.id as string;
+      const license = await storage.getLicense(id);
       if (!license || license.userId !== userId) {
         return res.status(404).json({ message: "License not found" });
       }
-      await storage.updateLicenseStatus(req.params.id, "revoked");
+      await storage.updateLicenseStatus(id, "revoked");
       await storage.createAuditLog({
         action: "license.revoked",
         entityType: "license",
-        entityId: req.params.id,
+        entityId: id,
         userId,
       });
       res.json({ message: "License revoked" });
@@ -252,11 +254,12 @@ export async function registerRoutes(
   app.delete("/api/licenses/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const license = await storage.getLicense(req.params.id);
+      const id = req.params.id as string;
+      const license = await storage.getLicense(id);
       if (!license || license.userId !== userId) {
         return res.status(404).json({ message: "License not found" });
       }
-      await storage.deleteLicense(req.params.id);
+      await storage.deleteLicense(id);
       res.json({ message: "License deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -312,7 +315,7 @@ export async function registerRoutes(
       if (!found) {
         return res.status(404).json({ message: "API key not found" });
       }
-      await storage.deleteApiKey(req.params.id);
+      await storage.deleteApiKey(req.params.id as string);
       res.json({ message: "API key deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
