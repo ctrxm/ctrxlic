@@ -51,6 +51,7 @@ import {
   AlertCircle,
   RefreshCw,
   Trash2,
+  ArrowRightLeft,
 } from "lucide-react";
 import type { License, Product } from "@shared/schema";
 
@@ -78,6 +79,9 @@ export default function LicensesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [transferId, setTransferId] = useState<string | null>(null);
+  const [transferName, setTransferName] = useState("");
+  const [transferEmail, setTransferEmail] = useState("");
   const { toast } = useToast();
 
   const { data: licenses, isLoading } = useQuery<(License & { productName?: string })[]>({
@@ -138,6 +142,22 @@ export default function LicensesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "License deleted" });
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: async ({ id, toName, toEmail }: { id: string; toName: string; toEmail: string }) => {
+      await apiRequest("POST", `/api/licenses/${id}/transfer`, { toName, toEmail });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
+      toast({ title: "License transferred successfully" });
+      setTransferId(null);
+      setTransferName("");
+      setTransferEmail("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -424,14 +444,28 @@ export default function LicensesPage() {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {license.status === "active" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => revokeMutation.mutate(license.id)}
-                              data-testid={`button-revoke-${license.id}`}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  setTransferId(license.id);
+                                  setTransferName(license.customerName || "");
+                                  setTransferEmail(license.customerEmail || "");
+                                }}
+                                data-testid={`button-transfer-${license.id}`}
+                              >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => revokeMutation.mutate(license.id)}
+                                data-testid={`button-revoke-${license.id}`}
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                           <Button
                             size="icon"
@@ -451,6 +485,47 @@ export default function LicensesPage() {
           </div>
         </Card>
       )}
+
+      <Dialog open={!!transferId} onOpenChange={(v) => { if (!v) setTransferId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer License</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">New Owner Name</label>
+              <Input
+                value={transferName}
+                onChange={(e) => setTransferName(e.target.value)}
+                placeholder="Customer name"
+                data-testid="input-transfer-name"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">New Owner Email</label>
+              <Input
+                type="email"
+                value={transferEmail}
+                onChange={(e) => setTransferEmail(e.target.value)}
+                placeholder="customer@example.com"
+                data-testid="input-transfer-email"
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (transferId && transferName && transferEmail) {
+                  transferMutation.mutate({ id: transferId, toName: transferName, toEmail: transferEmail });
+                }
+              }}
+              disabled={!transferName || !transferEmail || transferMutation.isPending}
+              data-testid="button-submit-transfer"
+            >
+              {transferMutation.isPending ? "Transferring..." : "Transfer License"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

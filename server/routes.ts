@@ -44,6 +44,53 @@ function generateApiKey(): string {
   return `cl_${randomBytes(32).toString("hex")}`;
 }
 
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  rateLimitStore.forEach((data, key) => {
+    if (now - data.windowStart > 60 * 1000) {
+      rateLimitStore.delete(key);
+    }
+  });
+}, 30 * 1000);
+
+async function triggerWebhooks(userId: string, event: string, payload: any) {
+  try {
+    const userWebhooks = await storage.getWebhooksByEvent(userId, event);
+    for (const webhook of userWebhooks) {
+      const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (webhook.secret) {
+        const signature = createHmac("sha256", webhook.secret).update(body).digest("hex");
+        headers["X-Webhook-Signature"] = signature;
+      }
+      let statusCode = 0;
+      let responseText = "";
+      let success = false;
+      try {
+        const resp = await fetch(webhook.url, { method: "POST", headers, body });
+        statusCode = resp.status;
+        responseText = await resp.text().catch(() => "");
+        success = resp.ok;
+      } catch (err: any) {
+        responseText = err.message;
+      }
+      await storage.createWebhookDelivery({
+        webhookId: webhook.id,
+        event,
+        payload,
+        statusCode: statusCode || undefined,
+        response: responseText || undefined,
+        success,
+      });
+      await storage.updateWebhookLastTriggered(webhook.id);
+    }
+  } catch (err) {
+    console.error("[Webhooks] Error triggering webhooks:", err);
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -252,6 +299,8 @@ export async function registerRoutes(
         details: { licenseKey, productId, type },
       });
 
+      triggerWebhooks(userId, "license.created", { licenseId: license.id, licenseKey, productId, type, customerName, customerEmail });
+
       res.json(license);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -273,6 +322,9 @@ export async function registerRoutes(
         entityId: id,
         userId,
       });
+
+      triggerWebhooks(userId, "license.revoked", { licenseId: id, licenseKey: license.licenseKey });
+
       res.json({ message: "License revoked" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -490,6 +542,30 @@ export async function registerRoutes(
     }
   });
 
+  const rateLimitMiddleware = async (req: any, res: any, next: any) => {
+    const apiKeyHeader = req.headers["x-api-key"];
+    if (!apiKeyHeader) {
+      return next();
+    }
+    const ip = req.ip || "unknown";
+    const key = `${apiKeyHeader}:${ip}`;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+    if (!entry || now - entry.windowStart > 60 * 1000) {
+      rateLimitStore.set(key, { count: 1, windowStart: now });
+      return next();
+    }
+    entry.count++;
+    const apiKeyRecord = await storage.getApiKeyByKey(apiKeyHeader);
+    const limit = apiKeyRecord?.rateLimitPerMinute || 60;
+    if (entry.count > limit) {
+      return res.status(429).json({ message: "Rate limit exceeded. Try again later." });
+    }
+    next();
+  };
+
+  app.use("/api/v1", rateLimitMiddleware);
+
   const validateApiKey = async (req: any, res: any, next: any) => {
     const apiKeyHeader = req.headers["x-api-key"];
     if (!apiKeyHeader) {
@@ -503,6 +579,13 @@ export async function registerRoutes(
 
     if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
       return res.status(401).json({ message: "API key expired" });
+    }
+
+    if (apiKey.allowedIps && apiKey.allowedIps.length > 0) {
+      const clientIp = req.ip || "";
+      if (!apiKey.allowedIps.includes(clientIp)) {
+        return res.status(403).json({ message: "IP not allowed" });
+      }
     }
 
     await storage.updateApiKeyLastUsed(apiKey.id);
@@ -615,6 +698,10 @@ export async function registerRoutes(
             isActive: true,
           });
           await storage.incrementActivations(license.id);
+
+          if (license.userId) {
+            triggerWebhooks(license.userId, "license.activated", { licenseId: license.id, licenseKey: license_key, machineId: machine_id });
+          }
         }
       }
 
@@ -744,6 +831,241 @@ export async function registerRoutes(
       res.status(500).json({ success: false, message: error.message });
     }
   });
+
+  // Webhook CRUD routes
+  app.get("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const result = await storage.getWebhooks(userId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/webhooks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const { url, events, secret, isActive } = req.body;
+      if (!url || !events || !Array.isArray(events) || events.length === 0) {
+        return res.status(400).json({ message: "url and events are required" });
+      }
+      const webhook = await storage.createWebhook({
+        userId,
+        url,
+        events,
+        secret: secret || null,
+        isActive: isActive !== undefined ? isActive : true,
+      });
+      res.json(webhook);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/webhooks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const webhooksList = await storage.getWebhooks(userId);
+      const found = webhooksList.find((w) => w.id === req.params.id);
+      if (!found) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      await storage.deleteWebhook(req.params.id);
+      res.json({ message: "Webhook deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/webhooks/:id/deliveries", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const webhooksList = await storage.getWebhooks(userId);
+      const found = webhooksList.find((w) => w.id === req.params.id);
+      if (!found) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      const deliveries = await storage.getWebhookDeliveries(req.params.id);
+      res.json(deliveries);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // License transfer route
+  app.post("/api/licenses/:id/transfer", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const id = req.params.id as string;
+      const { toName, toEmail } = req.body;
+      if (!toName || !toEmail) {
+        return res.status(400).json({ message: "toName and toEmail are required" });
+      }
+      const license = await storage.getLicense(id);
+      if (!license || license.userId !== userId) {
+        return res.status(404).json({ message: "License not found" });
+      }
+      const fromName = license.customerName || "";
+      const fromEmail = license.customerEmail || "";
+      await storage.updateLicenseCustomer(id, toName, toEmail);
+      await storage.createAuditLog({
+        action: "license.transferred",
+        entityType: "license",
+        entityId: id,
+        userId,
+        details: { fromName, fromEmail, toName, toEmail },
+      });
+      await storage.createNotification({
+        userId,
+        type: "license_transfer",
+        title: "License Transferred",
+        body: `License ${license.licenseKey} transferred from ${fromEmail} to ${toEmail}`,
+        metadata: { licenseId: id, fromName, fromEmail, toName, toEmail },
+      });
+      triggerWebhooks(userId, "license.transferred", { licenseId: id, licenseKey: license.licenseKey, fromName, fromEmail, toName, toEmail });
+      res.json({ message: "License transferred successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Notification routes
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const result = await storage.getNotifications(userId, 50);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.markNotificationRead(req.params.id);
+      res.json({ message: "Notification marked as read" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/notifications/read-all", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      await storage.markAllNotificationsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Customer portal route (public)
+  app.post("/api/portal/licenses", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const result = await storage.getLicensesByEmail(email);
+      const safeLicenses = result.map((l) => ({
+        id: l.id,
+        licenseKey: l.licenseKey,
+        productId: l.productId,
+        productName: l.productName,
+        customerName: l.customerName,
+        customerEmail: l.customerEmail,
+        type: l.type,
+        status: l.status,
+        maxActivations: l.maxActivations,
+        currentActivations: l.currentActivations,
+        allowedDomains: l.allowedDomains,
+        expiresAt: l.expiresAt,
+        createdAt: l.createdAt,
+      }));
+      res.json(safeLicenses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // API key update route
+  app.patch("/api/api-keys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const keys = await storage.getApiKeys(userId);
+      const found = keys.find((k) => k.id === req.params.id);
+      if (!found) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      const { allowedIps, rateLimitPerMinute } = req.body;
+      await storage.updateApiKey(req.params.id, {
+        allowedIps: allowedIps !== undefined ? allowedIps : undefined,
+        rateLimitPerMinute: rateLimitPerMinute !== undefined ? rateLimitPerMinute : undefined,
+      });
+      res.json({ message: "API key updated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Scheduled jobs - run every hour
+  setInterval(async () => {
+    try {
+      const expiredLicenses = await storage.getExpiredActiveLicenses();
+      for (const license of expiredLicenses) {
+        await storage.updateLicenseStatus(license.id, "expired");
+        await storage.createAuditLog({
+          action: "license.expired",
+          entityType: "license",
+          entityId: license.id,
+          userId: license.userId || undefined,
+          details: { licenseKey: license.licenseKey, expiredAt: license.expiresAt },
+        });
+        if (license.userId) {
+          await storage.createNotification({
+            userId: license.userId,
+            type: "license_expired",
+            title: "License Expired",
+            body: `License ${license.licenseKey} has expired`,
+            metadata: { licenseId: license.id },
+          });
+          triggerWebhooks(license.userId, "license.expired", { licenseId: license.id, licenseKey: license.licenseKey });
+        }
+      }
+
+      const expiringLicenses = await storage.getExpiringLicenses(7);
+      for (const license of expiringLicenses) {
+        if (license.userId) {
+          const existing = await storage.getNotifications(license.userId, 50);
+          const alreadyNotified = existing.some(
+            (n) => n.type === "expiry_reminder" && n.metadata && (n.metadata as any).licenseId === license.id
+          );
+          if (!alreadyNotified) {
+            await storage.createNotification({
+              userId: license.userId,
+              type: "expiry_reminder",
+              title: "License Expiring Soon",
+              body: `License ${license.licenseKey} will expire on ${license.expiresAt ? new Date(license.expiresAt).toLocaleDateString() : "soon"}`,
+              metadata: { licenseId: license.id },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Scheduled] Error in license expiry check:", err);
+    }
+  }, 60 * 60 * 1000);
 
   return httpServer;
 }

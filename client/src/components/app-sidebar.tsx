@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Sparkles,
   Send,
+  Webhook,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const mainItems = [
   { title: "Statistics", url: "/statistics", icon: BarChart3, color: "text-amber-500" },
   { title: "API Docs", url: "/docs", icon: Code2, color: "text-orange-500" },
   { title: "SDK Downloads", url: "/downloads", icon: Download, color: "text-teal-500" },
+  { title: "Webhooks", url: "/webhooks", icon: Webhook, color: "text-rose-500" },
 ];
 
 const adminItems = [

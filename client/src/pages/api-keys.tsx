@@ -40,7 +40,13 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Settings2,
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import type { ApiKey, Product } from "@shared/schema";
 
 const createApiKeySchema = z.object({
@@ -55,6 +61,9 @@ export default function ApiKeysPage() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<Set<string>>(new Set());
+  const [ipInputs, setIpInputs] = useState<Record<string, string>>({});
+  const [rateLimitInputs, setRateLimitInputs] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const { data: apiKeys, isLoading } = useQuery<(ApiKey & { productName?: string })[]>({
@@ -82,6 +91,19 @@ export default function ApiKeysPage() {
       setNewKey(data.key);
       toast({ title: "API key created" });
       form.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, allowedIps, rateLimitPerMinute }: { id: string; allowedIps?: string[]; rateLimitPerMinute?: number | null }) => {
+      await apiRequest("PATCH", `/api/api-keys/${id}`, { allowedIps, rateLimitPerMinute });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      toast({ title: "API key updated" });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -116,6 +138,27 @@ export default function ApiKeysPage() {
   };
 
   const maskKey = (key: string) => key.slice(0, 8) + "..." + key.slice(-4);
+
+  const toggleSettings = (id: string) => {
+    setSettingsOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const saveIpWhitelist = (apiKey: ApiKey & { productName?: string }) => {
+    const raw = ipInputs[apiKey.id] ?? (apiKey.allowedIps?.join(", ") || "");
+    const ips = raw.split(",").map(s => s.trim()).filter(Boolean);
+    updateMutation.mutate({ id: apiKey.id, allowedIps: ips.length > 0 ? ips : null });
+  };
+
+  const saveRateLimit = (apiKey: ApiKey & { productName?: string }) => {
+    const raw = rateLimitInputs[apiKey.id] ?? String(apiKey.rateLimitPerMinute || 60);
+    const val = parseInt(raw);
+    updateMutation.mutate({ id: apiKey.id, rateLimitPerMinute: isNaN(val) ? null : val });
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
@@ -278,6 +321,14 @@ export default function ApiKeysPage() {
                   <Button
                     size="icon"
                     variant="ghost"
+                    onClick={() => toggleSettings(apiKey.id)}
+                    data-testid={`button-settings-api-key-${apiKey.id}`}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
                     onClick={() => copyKey(apiKey.key, apiKey.id)}
                     data-testid={`button-copy-api-key-${apiKey.id}`}
                   >
@@ -297,6 +348,57 @@ export default function ApiKeysPage() {
                   </Button>
                 </div>
               </div>
+              {settingsOpen.has(apiKey.id) && (
+                <div className="mt-4 pt-4 border-t space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                      IP Whitelist (comma-separated, leave empty for no restriction)
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="192.168.1.1, 10.0.0.1"
+                        className="flex-1 text-sm"
+                        value={ipInputs[apiKey.id] ?? (apiKey.allowedIps?.join(", ") || "")}
+                        onChange={(e) => setIpInputs((prev) => ({ ...prev, [apiKey.id]: e.target.value }))}
+                        data-testid={`input-ip-whitelist-${apiKey.id}`}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => saveIpWhitelist(apiKey)}
+                        disabled={updateMutation.isPending}
+                        data-testid={`button-save-ip-${apiKey.id}`}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                      Rate Limit (requests per minute)
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="60"
+                        className="w-32 text-sm"
+                        value={rateLimitInputs[apiKey.id] ?? String(apiKey.rateLimitPerMinute || 60)}
+                        onChange={(e) => setRateLimitInputs((prev) => ({ ...prev, [apiKey.id]: e.target.value }))}
+                        data-testid={`input-rate-limit-${apiKey.id}`}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => saveRateLimit(apiKey)}
+                        disabled={updateMutation.isPending}
+                        data-testid={`button-save-rate-limit-${apiKey.id}`}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
           ))}
         </div>

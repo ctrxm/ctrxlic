@@ -12,8 +12,8 @@ CTRXL LICENSE is a full-featured software license management platform that allow
 ## Project Structure
 ```
 client/src/
-  pages/         - All page components (landing, auth, dashboard, products, licenses, api-keys, statistics, docs, downloads, admin-*, install)
-  components/    - Reusable components (app-sidebar, stat-card, theme-provider, theme-toggle)
+  pages/         - All page components (landing, auth, dashboard, products, licenses, api-keys, statistics, docs, downloads, admin-*, install, webhooks, customer-portal)
+  components/    - Reusable components (app-sidebar, stat-card, theme-provider, theme-toggle, notifications-bell)
   hooks/         - Custom hooks (use-auth, use-toast)
   lib/           - Utility functions (queryClient with VITE_API_URL support, utils, auth-utils)
 
@@ -29,7 +29,7 @@ api/
   index.ts       - Vercel serverless function entry point
 
 shared/
-  schema.ts      - Drizzle schema definitions (products, licenses, activations, apiKeys, auditLogs)
+  schema.ts      - Drizzle schema definitions (products, licenses, activations, apiKeys, auditLogs, webhooks, webhookDeliveries, notifications)
   models/auth.ts - Auth schema (users with passwordHash, role, sessions)
 
 script/
@@ -73,6 +73,14 @@ cloudflare-pages/
   - Platform settings
 - Dual authentication: Replit Auth (OIDC) + email/password signup/login
 - Responsive landing page with mobile hamburger menu
+- Webhook notifications system with CRUD, delivery tracking, and HMAC-SHA256 signed payloads
+- License transfer between customers (POST /api/licenses/:id/transfer)
+- Customer portal (public /portal page) - buyers look up licenses by email
+- In-app notifications with bell icon in header, unread count, mark read/all read
+- Rate limiting middleware for API v1 endpoints (configurable per API key, default 60 req/min)
+- IP whitelist on API keys (configurable allowed IPs list)
+- License expiry reminders - scheduled job checks every hour for licenses expiring within 7 days
+- Auto-expire: scheduled job marks expired active licenses as "expired" automatically
 
 ## Database Schema
 - `users` - Auth users with optional passwordHash, role (default "user", can be "admin")
@@ -80,8 +88,11 @@ cloudflare-pages/
 - `products` - Software products
 - `licenses` - License keys with type, status, activations, allowedDomains (text array)
 - `activations` - Machine activations per license
-- `api_keys` - API keys for external validation (cl_ prefix)
+- `api_keys` - API keys for external validation (cl_ prefix, with allowedIps and rateLimitPerMinute)
 - `audit_logs` - Action audit trail
+- `webhooks` - Webhook endpoints with events, secret, isActive
+- `webhook_deliveries` - Webhook delivery history with status tracking
+- `notifications` - In-app notifications with title, message, type, readAt
 
 ## Admin System
 - Users have a `role` column: "user" (default) or "admin"
@@ -100,6 +111,8 @@ cloudflare-pages/
 - `POST /api/v1/licenses/deactivate` - License deactivation (requires API key header)
 - `POST /api/v1/nonce` - Generate nonce for challenge-response validation
 - `POST /api/v1/licenses/verify-token` - Verify validation token authenticity
+- `/portal` - Customer portal (license lookup by email)
+- `POST /api/portal/licenses` - Customer portal API (email-based license lookup)
 
 ## Running
 - `npm run dev` - Start development server

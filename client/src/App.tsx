@@ -25,6 +25,9 @@ import AdminLicensesPage from "@/pages/admin-licenses";
 import AdminAuditLogsPage from "@/pages/admin-audit-logs";
 import AdminSettingsPage from "@/pages/admin-settings";
 import InstallPage from "@/pages/install";
+import WebhooksPage from "@/pages/webhooks";
+import CustomerPortalPage from "@/pages/customer-portal";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 function AuthenticatedLayout() {
   const style = {
@@ -39,7 +42,10 @@ function AuthenticatedLayout() {
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-4 p-2 border-b bg-background sticky top-0 z-50">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <NotificationsBell />
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 overflow-y-auto">
             <Switch>
@@ -50,6 +56,7 @@ function AuthenticatedLayout() {
               <Route path="/statistics" component={StatisticsPage} />
               <Route path="/docs" component={DocsPage} />
               <Route path="/downloads" component={DownloadsPage} />
+              <Route path="/webhooks" component={WebhooksPage} />
               <Route path="/admin/overview" component={AdminOverviewPage} />
               <Route path="/admin/users" component={AdminUsersPage} />
               <Route path="/admin/licenses" component={AdminLicensesPage} />
@@ -75,6 +82,10 @@ function AppContent() {
 
   if (location.startsWith("/install/")) {
     return <InstallPage />;
+  }
+
+  if (location === "/portal") {
+    return <CustomerPortalPage />;
   }
 
   if (isLoading) {

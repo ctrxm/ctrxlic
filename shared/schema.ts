@@ -72,6 +72,8 @@ export const apiKeys = pgTable("api_keys", {
   userId: varchar("user_id"),
   permissions: text("permissions").array().default(sql`ARRAY['validate']::text[]`),
   isActive: boolean("is_active").default(true),
+  allowedIps: text("allowed_ips").array(),
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
   lastUsedAt: timestamp("last_used_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -95,10 +97,47 @@ export const auditLogs = pgTable("audit_logs", {
   index("idx_audit_entity").on(table.entityType, table.entityId),
 ]);
 
+export const webhooks = pgTable("webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  url: text("url").notNull(),
+  events: text("events").array().notNull(),
+  secret: text("secret"),
+  isActive: boolean("is_active").default(true),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  webhookId: varchar("webhook_id").notNull(),
+  event: text("event").notNull(),
+  payload: jsonb("payload"),
+  statusCode: integer("status_code"),
+  response: text("response"),
+  success: boolean("success").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  metadata: jsonb("metadata"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_notification_user").on(table.userId),
+]);
+
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertLicenseSchema = createInsertSchema(licenses).omit({ id: true, licenseKey: true, currentActivations: true, createdAt: true, updatedAt: true });
 export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, key: true, lastUsedAt: true, createdAt: true });
 export const insertActivationSchema = createInsertSchema(activations).omit({ id: true, activatedAt: true, lastSeenAt: true });
+export const insertWebhookSchema = createInsertSchema(webhooks).omit({ id: true, lastTriggeredAt: true, createdAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, readAt: true, createdAt: true });
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
@@ -109,3 +148,8 @@ export type Activation = typeof activations.$inferSelect;
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type Webhook = typeof webhooks.$inferSelect;
+export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
