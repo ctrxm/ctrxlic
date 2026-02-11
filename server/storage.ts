@@ -1,5 +1,6 @@
 import {
   products, licenses, apiKeys, activations, auditLogs, webhooks, webhookDeliveries, notifications,
+  plans, platformSettings,
   type Product, type InsertProduct,
   type License, type InsertLicense,
   type ApiKey, type InsertApiKey,
@@ -8,6 +9,8 @@ import {
   type Webhook, type InsertWebhook,
   type WebhookDelivery,
   type Notification, type InsertNotification,
+  type Plan, type InsertPlan,
+  type PlatformSetting,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -71,6 +74,18 @@ export interface IStorage {
   getAdminStats(): Promise<any>;
   getAllLicenses(): Promise<(License & { productName?: string })[]>;
   getAllProducts(): Promise<Product[]>;
+
+  getPlans(): Promise<Plan[]>;
+  getPlan(id: string): Promise<Plan | undefined>;
+  createPlan(data: InsertPlan): Promise<Plan>;
+  updatePlan(id: string, data: Partial<InsertPlan>): Promise<Plan>;
+  deletePlan(id: string): Promise<void>;
+
+  getSettings(): Promise<PlatformSetting[]>;
+  getSetting(key: string): Promise<string | null>;
+  upsertSettings(settings: { key: string; value: string }[]): Promise<void>;
+
+  updateUserPlan(userId: string, planId: string | null): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -544,6 +559,60 @@ export class DatabaseStorage implements IStorage {
 
   async getAllProducts(): Promise<Product[]> {
     return db.select().from(products).orderBy(desc(products.createdAt));
+  }
+
+  async getPlans(): Promise<Plan[]> {
+    return db.select().from(plans).orderBy(plans.createdAt);
+  }
+
+  async getPlan(id: string): Promise<Plan | undefined> {
+    const [plan] = await db.select().from(plans).where(eq(plans.id, id));
+    return plan;
+  }
+
+  async createPlan(data: InsertPlan): Promise<Plan> {
+    if (data.isDefault) {
+      await db.update(plans).set({ isDefault: false }).where(eq(plans.isDefault, true));
+    }
+    const [plan] = await db.insert(plans).values(data).returning();
+    return plan;
+  }
+
+  async updatePlan(id: string, data: Partial<InsertPlan>): Promise<Plan> {
+    if (data.isDefault) {
+      await db.update(plans).set({ isDefault: false }).where(eq(plans.isDefault, true));
+    }
+    const [plan] = await db.update(plans).set(data).where(eq(plans.id, id)).returning();
+    return plan;
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    await db.update(users).set({ planId: null }).where(eq(users.planId, id));
+    await db.delete(plans).where(eq(plans.id, id));
+  }
+
+  async getSettings(): Promise<PlatformSetting[]> {
+    return db.select().from(platformSettings);
+  }
+
+  async getSetting(key: string): Promise<string | null> {
+    const [setting] = await db.select().from(platformSettings).where(eq(platformSettings.key, key));
+    return setting?.value ?? null;
+  }
+
+  async upsertSettings(settings: { key: string; value: string }[]): Promise<void> {
+    for (const s of settings) {
+      await db.insert(platformSettings)
+        .values({ key: s.key, value: s.value, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: platformSettings.key,
+          set: { value: s.value, updatedAt: new Date() },
+        });
+    }
+  }
+
+  async updateUserPlan(userId: string, planId: string | null): Promise<void> {
+    await db.update(users).set({ planId }).where(eq(users.id, userId));
   }
 }
 

@@ -517,6 +517,153 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/plans", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await storage.getPlans();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/plans", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { name, displayName, priceMonthly, maxProducts, maxLicenses, maxApiKeys, maxActivationsPerLicense, features, isDefault, isActive } = req.body;
+      if (!name || typeof name !== "string" || !displayName || typeof displayName !== "string") {
+        return res.status(400).json({ message: "Name and display name are required" });
+      }
+      const plan = await storage.createPlan({
+        name: name.trim().toLowerCase(),
+        displayName: displayName.trim(),
+        priceMonthly: typeof priceMonthly === "number" ? priceMonthly : 0,
+        maxProducts: typeof maxProducts === "number" ? maxProducts : 3,
+        maxLicenses: typeof maxLicenses === "number" ? maxLicenses : 10,
+        maxApiKeys: typeof maxApiKeys === "number" ? maxApiKeys : 2,
+        maxActivationsPerLicense: typeof maxActivationsPerLicense === "number" ? maxActivationsPerLicense : 1,
+        features: Array.isArray(features) ? features.filter((f: any) => typeof f === "string") : [],
+        isDefault: isDefault === true,
+        isActive: isActive !== false,
+      });
+      await storage.createAuditLog({
+        action: "plan.created",
+        entityType: "plan",
+        entityId: plan.id,
+        userId: req.user?.id,
+        details: { planName: name },
+      });
+      res.json(plan);
+    } catch (error: any) {
+      if (error.message?.includes("unique") || error.code === "23505") {
+        return res.status(400).json({ message: "A plan with this name already exists" });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  const ALLOWED_PLAN_FIELDS = ["name", "displayName", "priceMonthly", "maxProducts", "maxLicenses", "maxApiKeys", "maxActivationsPerLicense", "features", "isDefault", "isActive"];
+
+  app.patch("/api/admin/plans/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const sanitized: any = {};
+      for (const key of ALLOWED_PLAN_FIELDS) {
+        if (req.body[key] !== undefined) {
+          sanitized[key] = req.body[key];
+        }
+      }
+      if (sanitized.name) sanitized.name = String(sanitized.name).trim().toLowerCase();
+      if (sanitized.displayName) sanitized.displayName = String(sanitized.displayName).trim();
+      if (sanitized.features && Array.isArray(sanitized.features)) {
+        sanitized.features = sanitized.features.filter((f: any) => typeof f === "string");
+      }
+      const plan = await storage.updatePlan(req.params.id, sanitized);
+      await storage.createAuditLog({
+        action: "plan.updated",
+        entityType: "plan",
+        entityId: req.params.id,
+        userId: req.user?.id,
+        details: sanitized,
+      });
+      res.json(plan);
+    } catch (error: any) {
+      if (error.message?.includes("unique") || error.code === "23505") {
+        return res.status(400).json({ message: "A plan with this name already exists" });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/plans/:id", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      await storage.deletePlan(req.params.id);
+      await storage.createAuditLog({
+        action: "plan.deleted",
+        entityType: "plan",
+        entityId: req.params.id,
+        userId: req.user?.id,
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/settings", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      const result: Record<string, string> = {};
+      for (const s of settings) {
+        result[s.key] = s.value;
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  const ALLOWED_SETTINGS_KEYS = new Set([
+    "platform.name", "platform.defaultRateLimit", "platform.defaultMaxActivations", "platform.licenseFormat",
+    "security.sessionTimeoutMinutes", "security.passwordMinLength", "security.requireSpecialChar", "security.twoFactorEnabled",
+    "general.maintenanceMode", "general.registrationEnabled", "general.defaultUserRole", "general.allowReplitAuth",
+  ]);
+
+  app.put("/api/admin/settings", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const entries = Object.entries(req.body)
+        .filter(([key]) => ALLOWED_SETTINGS_KEYS.has(key))
+        .map(([key, value]) => ({ key, value: String(value) }));
+      if (entries.length === 0) {
+        return res.status(400).json({ message: "No valid settings provided" });
+      }
+      await storage.upsertSettings(entries);
+      await storage.createAuditLog({
+        action: "settings.updated",
+        entityType: "settings",
+        userId: req.user?.id,
+        details: { keys: entries.map(e => e.key) },
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/plan", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { planId } = req.body;
+      await storage.updateUserPlan(req.params.id, planId || null);
+      await storage.createAuditLog({
+        action: "user.plan_updated",
+        entityType: "user",
+        entityId: req.params.id,
+        userId: req.user?.id,
+        details: { planId },
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/v1/nonce", async (_req, res) => {
     const nonce = randomBytes(32).toString("hex");
     const timestamp = Date.now();

@@ -132,6 +132,32 @@ export const notifications = pgTable("notifications", {
   index("idx_notification_user").on(table.userId),
 ]);
 
+export const plans = pgTable("plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  priceMonthly: integer("price_monthly").default(0),
+  maxProducts: integer("max_products").default(3),
+  maxLicenses: integer("max_licenses").default(10),
+  maxApiKeys: integer("max_api_keys").default(2),
+  maxActivationsPerLicense: integer("max_activations_per_license").default(1),
+  features: text("features").array(),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const platformSettings = pgTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlanSchema = createInsertSchema(plans).omit({ id: true, createdAt: true });
+export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertLicenseSchema = createInsertSchema(licenses).omit({ id: true, licenseKey: true, currentActivations: true, createdAt: true, updatedAt: true });
 export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, key: true, lastUsedAt: true, createdAt: true });

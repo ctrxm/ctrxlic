@@ -93,12 +93,18 @@ cloudflare-pages/
 - `webhooks` - Webhook endpoints with events, secret, isActive
 - `webhook_deliveries` - Webhook delivery history with status tracking
 - `notifications` - In-app notifications with title, message, type, readAt
+- `plans` - Subscription plans with usage limits (maxProducts, maxLicenses, maxApiKeys, etc.)
+- `platform_settings` - Key-value store for platform configuration
 
 ## Admin System
 - Users have a `role` column: "user" (default) or "admin"
 - Admin sidebar section only visible to users with role="admin"
 - Backend admin routes protected by `isAdmin` middleware
 - Admin routes: GET /api/admin/stats, GET /api/admin/users, PATCH /api/admin/users/:id/role, DELETE /api/admin/users/:id, GET /api/admin/audit-logs, GET /api/admin/licenses, GET /api/admin/products
+- Plan management: GET/POST/PATCH/DELETE /api/admin/plans
+- Platform settings: GET/PUT /api/admin/settings (whitelisted keys only)
+- User plan assignment: PATCH /api/admin/users/:id/plan
+- Admin Settings page with tabs: Plans, Platform, Security, General, User Plans
 - Frontend admin pages redirect non-admin users to /dashboard
 
 ## Public Routes (no auth required)
