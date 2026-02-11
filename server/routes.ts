@@ -69,13 +69,25 @@ async function sendTelegramMessage(botToken: string, chatId: string, text: strin
   }
 }
 
+function maskLicenseKey(key: string): string {
+  if (!key || key.length < 8) return "****";
+  const parts = key.split("-");
+  if (parts.length >= 4) {
+    return `${parts[0]}-${parts[1]}-***-***`;
+  }
+  return key.substring(0, 6) + "***" + key.substring(key.length - 3);
+}
+
 async function sendTelegramNotification(message: string) {
   try {
     const botToken = await storage.getSetting("telegram.botToken");
     const chatId = await storage.getSetting("telegram.chatId");
     const enabled = await storage.getSetting("telegram.enabled");
     if (!botToken || !chatId || enabled !== "true") return;
-    await sendTelegramMessage(botToken, chatId, message);
+    const result = await sendTelegramMessage(botToken, chatId, message);
+    if (!result.ok) {
+      console.error("[Telegram] Failed to send:", result.description);
+    }
   } catch (err) {
     console.error("[Telegram] Notification error:", err);
   }
@@ -326,7 +338,7 @@ export async function registerRoutes(
       });
 
       triggerWebhooks(userId, "license.created", { licenseId: license.id, licenseKey, productId, type, customerName, customerEmail });
-      sendTelegramNotification(`New License Created\nKey: ${licenseKey}\nType: ${type}\nCustomer: ${customerName || "N/A"}\nEmail: ${customerEmail || "N/A"}`);
+      await sendTelegramNotification(`🔑 <b>New License Created</b>\nKey: <code>${maskLicenseKey(licenseKey)}</code>\nType: ${type}\nCustomer: ${customerName || "N/A"}\nEmail: ${customerEmail || "N/A"}`);
 
       res.json(license);
     } catch (error: any) {
@@ -876,7 +888,7 @@ export async function registerRoutes(
 
           if (license.userId) {
             triggerWebhooks(license.userId, "license.activated", { licenseId: license.id, licenseKey: license_key, machineId: machine_id });
-            sendTelegramNotification(`License Activated\nKey: ${license_key}\nMachine: ${machine_id}\nIP: ${req.ip || "N/A"}`);
+            await sendTelegramNotification(`✅ <b>License Activated</b>\nKey: <code>${maskLicenseKey(license_key)}</code>\nMachine: ${machine_id}\nIP: ${req.ip || "N/A"}`);
           }
         }
       }
@@ -1243,7 +1255,7 @@ export async function registerRoutes(
         metadata: { licenseId: license.id },
       });
       triggerWebhooks(userId, "license.renewed", { licenseId: license.id, licenseKey: license.licenseKey, newExpiresAt: newExpiry });
-      sendTelegramNotification(`License Renewed\nKey: ${license.licenseKey}\nNew Expiry: ${newExpiry.toLocaleDateString()}\nCustomer: ${license.customerName || "N/A"}`);
+      await sendTelegramNotification(`🔄 <b>License Renewed</b>\nKey: <code>${maskLicenseKey(license.licenseKey)}</code>\nNew Expiry: ${newExpiry.toLocaleDateString()}\nCustomer: ${license.customerName || "N/A"}`);
       res.json({ message: "License renewed successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -1306,7 +1318,7 @@ export async function registerRoutes(
             metadata: { licenseId: license.id },
           });
           triggerWebhooks(license.userId, "license.expired", { licenseId: license.id, licenseKey: license.licenseKey });
-          sendTelegramNotification(`License Expired\nKey: ${license.licenseKey}\nCustomer: ${license.customerName || "N/A"}`);
+          await sendTelegramNotification(`⚠️ <b>License Expired</b>\nKey: <code>${maskLicenseKey(license.licenseKey)}</code>\nCustomer: ${license.customerName || "N/A"}`);
         }
       }
 
