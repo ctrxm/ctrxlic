@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated, authStorage } from "./replit_integrations/auth";
-import { randomBytes, createHmac } from "crypto";
+import { randomBytes, createHmac, createCipheriv, createHash } from "crypto";
 import bcrypt from "bcryptjs";
 
 const LICENSE_SIGNING_SECRET = process.env.LICENSE_SIGNING_SECRET || (() => {
@@ -1213,6 +1213,228 @@ export async function registerRoutes(
       console.error("[Scheduled] Error in license expiry check:", err);
     }
   }, 60 * 60 * 1000);
+
+  // SDK Obfuscation endpoint - obfuscates SDK files to make them harder to read/modify
+  app.post("/api/sdk/encrypt", isAuthenticated, async (req, res) => {
+    try {
+      const { code, language } = req.body;
+      if (!code || !language) {
+        return res.status(400).json({ message: "Code and language are required" });
+      }
+      if (!["php", "typescript", "javascript", "python"].includes(language)) {
+        return res.status(400).json({ message: "Unsupported language" });
+      }
+      if (code.length > 200000) {
+        return res.status(400).json({ message: "Code too large" });
+      }
+
+      let encrypted = "";
+
+      if (language === "php") {
+        const varNames = [
+          "$_0x" + randomBytes(4).toString("hex"),
+          "$_0x" + randomBytes(4).toString("hex"),
+        ];
+        const encoded = Buffer.from(code).toString("base64");
+        const chunkSize = 76;
+        const chunks: string[] = [];
+        for (let i = 0; i < encoded.length; i += chunkSize) {
+          chunks.push(encoded.slice(i, i + chunkSize));
+        }
+        encrypted = `<?php
+/*
+ * CTRXL LicenseGuard SDK v2.0 (Obfuscated)
+ * This file is protected. Modifying it will break license validation.
+ * Generated: ${new Date().toISOString()}
+ */
+${varNames[0]} = array(
+${chunks.map((c) => `    '${c}'`).join(",\n")}
+);
+${varNames[1]} = '';
+foreach(${varNames[0]} as $__p) { ${varNames[1]} .= $__p; }
+eval(base64_decode(${varNames[1]}));
+`;
+      } else if (language === "typescript" || language === "javascript") {
+        const encoded = Buffer.from(code).toString("base64");
+        const chunks: string[] = [];
+        const chunkSize = 76;
+        for (let i = 0; i < encoded.length; i += chunkSize) {
+          chunks.push(encoded.slice(i, i + chunkSize));
+        }
+        const v1 = "_0x" + randomBytes(4).toString("hex");
+        const v2 = "_0x" + randomBytes(4).toString("hex");
+        encrypted = `/**
+ * CTRXL LicenseGuard SDK v2.0 (Obfuscated)
+ * This file is protected. Modifying it will break license validation.
+ * Generated: ${new Date().toISOString()}
+ */
+const ${v1} = [
+${chunks.map((c) => `  '${c}'`).join(",\n")}
+];
+const ${v2} = Buffer.from(${v1}.join(''), 'base64').toString('utf8');
+const __m = { exports: {} };
+new Function('module', 'exports', 'require', '__filename', '__dirname', ${v2})(__m, __m.exports, require, __filename, __dirname);
+module.exports = __m.exports;
+`;
+      } else if (language === "python") {
+        const encoded = Buffer.from(code).toString("base64");
+        const chunks: string[] = [];
+        const chunkSize = 76;
+        for (let i = 0; i < encoded.length; i += chunkSize) {
+          chunks.push(encoded.slice(i, i + chunkSize));
+        }
+        const v1 = "_0x" + randomBytes(4).toString("hex");
+        encrypted = `# -*- coding: utf-8 -*-
+"""
+CTRXL LicenseGuard SDK v2.0 (Obfuscated)
+This file is protected. Modifying it will break license validation.
+Generated: ${new Date().toISOString()}
+"""
+import base64 as _b64
+${v1} = (
+${chunks.map((c) => `    '${c}'`).join("\n")}
+)
+exec(compile(_b64.b64decode(${v1}).decode('utf-8'), '<ctrxl>', 'exec'))
+`;
+      }
+
+      res.json({ encrypted, language });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Obfuscation failed" });
+    }
+  });
+
+  // Generate standalone install.html page for buyers
+  app.get("/api/sdk/install-page", isAuthenticated, async (req, res) => {
+    const apiUrl = (req.query.apiUrl as string) || `${req.protocol}://${req.get("host")}`;
+    const installHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>License Activation - CTRXL</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a0f;color:#e4e4e7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .container{max-width:480px;width:100%}
+    .card{background:#18181b;border:1px solid #27272a;border-radius:12px;padding:32px;margin-bottom:16px}
+    .logo{display:flex;align-items:center;gap:8px;margin-bottom:24px;justify-content:center}
+    .logo svg{width:28px;height:28px;color:#8b5cf6}
+    .logo span{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+    h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:8px}
+    .subtitle{text-align:center;color:#a1a1aa;font-size:14px;margin-bottom:24px}
+    label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:#d4d4d8}
+    input{width:100%;padding:10px 14px;background:#09090b;border:1px solid #27272a;border-radius:8px;color:#fafafa;font-size:14px;font-family:monospace;outline:none;transition:border-color 0.2s}
+    input:focus{border-color:#8b5cf6}
+    input::placeholder{color:#52525b}
+    .btn{width:100%;padding:12px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px;transition:opacity 0.2s}
+    .btn:hover{opacity:0.9}
+    .btn:disabled{opacity:0.5;cursor:not-allowed}
+    .status{margin-top:16px;padding:12px;border-radius:8px;font-size:13px;display:none}
+    .status.success{display:block;background:#052e16;border:1px solid #166534;color:#4ade80}
+    .status.error{display:block;background:#450a0a;border:1px solid #991b1b;color:#fca5a5}
+    .status.loading{display:block;background:#172554;border:1px solid #1e40af;color:#93c5fd}
+    .info{margin-top:20px;padding:16px;background:#09090b;border:1px solid #27272a;border-radius:8px}
+    .info h3{font-size:14px;font-weight:600;margin-bottom:8px}
+    .info p{font-size:12px;color:#a1a1aa;line-height:1.6}
+    .info code{background:#27272a;padding:2px 6px;border-radius:4px;font-size:11px;color:#a78bfa}
+    .steps{margin-top:16px}
+    .step{display:flex;gap:12px;margin-bottom:12px}
+    .step-num{width:24px;height:24px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+    .step-text{font-size:13px;color:#d4d4d8}
+    .footer{text-align:center;font-size:12px;color:#52525b;margin-top:16px}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+    .result-item{font-size:12px}
+    .result-item .label{color:#71717a;font-size:11px}
+    .result-item .value{color:#d4d4d8;font-weight:500;margin-top:2px}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:500}
+    .badge.active{background:#052e16;color:#4ade80;border:1px solid #166534}
+    .badge.inactive{background:#450a0a;color:#fca5a5;border:1px solid #991b1b}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        <span>CTRXL LICENSE</span>
+      </div>
+      <h1>Activate Your License</h1>
+      <p class="subtitle">Enter your license key to activate this application</p>
+      <form id="licenseForm" onsubmit="return validateLicense(event)">
+        <label for="licenseKey">License Key</label>
+        <input type="text" id="licenseKey" name="licenseKey" placeholder="CL-XXX-XXX-XXX-XXX" required autocomplete="off" />
+        <button type="submit" class="btn" id="submitBtn">Activate License</button>
+      </form>
+      <div id="status" class="status"></div>
+      <div id="licenseInfo" style="display:none"></div>
+    </div>
+    <div class="card">
+      <div class="info">
+        <h3>Setup Instructions</h3>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-text">Find <code>.env</code> or <code>config.php</code> in your project</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text">Set <code>CTRXL_LICENSE_KEY</code> to your license key</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text">Set <code>CTRXL_API_KEY</code> (provided by seller)</div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-text">Restart the application</div></div>
+        </div>
+      </div>
+    </div>
+    <p class="footer">Powered by CTRXL LICENSE</p>
+  </div>
+  <script>
+    const API_URL = '${apiUrl}';
+    async function validateLicense(e) {
+      e.preventDefault();
+      const key = document.getElementById('licenseKey').value.trim();
+      const status = document.getElementById('status');
+      const btn = document.getElementById('submitBtn');
+      const info = document.getElementById('licenseInfo');
+      if (!key) return false;
+      status.className = 'status loading';
+      status.textContent = 'Validating license...';
+      btn.disabled = true;
+      try {
+        const resp = await fetch(API_URL + '/api/v1/licenses/info/' + encodeURIComponent(key));
+        const data = await resp.json();
+        if (resp.ok && data.license) {
+          const l = data.license;
+          const isActive = l.status === 'active';
+          status.className = 'status ' + (isActive ? 'success' : 'error');
+          status.textContent = isActive ? 'License is valid and active!' : 'License found but status is: ' + l.status;
+          info.style.display = 'block';
+          info.innerHTML = '<div class="result-grid">' +
+            '<div class="result-item"><div class="label">Status</div><div class="value"><span class="badge ' + (isActive ? 'active' : 'inactive') + '">' + l.status + '</span></div></div>' +
+            '<div class="result-item"><div class="label">Type</div><div class="value">' + (l.type || '-') + '</div></div>' +
+            '<div class="result-item"><div class="label">Product</div><div class="value">' + (l.productName || '-') + '</div></div>' +
+            '<div class="result-item"><div class="label">Expires</div><div class="value">' + (l.expiresAt ? new Date(l.expiresAt).toLocaleDateString() : 'Never') + '</div></div>' +
+            '</div>';
+        } else {
+          status.className = 'status error';
+          status.textContent = data.message || 'License key not found. Please check and try again.';
+          info.style.display = 'none';
+        }
+      } catch(err) {
+        status.className = 'status error';
+        status.textContent = 'Could not connect to license server. Please try again later.';
+        info.style.display = 'none';
+      }
+      btn.disabled = false;
+      return false;
+    }
+    // Auto-fill from URL params
+    const params = new URLSearchParams(window.location.search);
+    const keyParam = params.get('key') || window.location.pathname.split('/install/')[1];
+    if (keyParam) {
+      document.getElementById('licenseKey').value = decodeURIComponent(keyParam);
+    }
+  </script>
+</body>
+</html>`;
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader("Content-Disposition", 'attachment; filename="install.html"');
+    res.send(installHtml);
+  });
 
   return httpServer;
 }

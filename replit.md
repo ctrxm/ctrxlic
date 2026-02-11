@@ -54,8 +54,10 @@ cloudflare-pages/
 - CodeCanyon-like license protection system:
   - Seller Guide: step-by-step checklist to embed license SDK in source code
   - SDK Downloads v2.0 (Anti-Crack): PHP, Next.js/TypeScript, Python SDK files with .env.example and INSTALL.md templates
+  - SDK Obfuscation: POST /api/sdk/encrypt endpoint obfuscates SDK code (base64 + randomized vars) for PHP/TS/Python
   - Framework Examples: Vanilla PHP, Laravel, WordPress, Next.js, Express.js, Flask, Django, FastAPI
-  - Auto-redirect flow: buyers redirected to install page if license is invalid
+  - Auto-redirect flow: SDK redirects to buyer's own domain /install.html (local redirect) for first-time setup
+  - Standalone install.html: downloadable via GET /api/sdk/install-page, placed in buyer's project root for license activation
 - Anti-crack protection system:
   - HMAC-SHA256 cryptographic response signatures (server-side)
   - Nonce challenge-response protocol (prevents replay attacks)

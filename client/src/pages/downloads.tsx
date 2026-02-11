@@ -54,7 +54,10 @@ class LicenseGuard {
     }
     
     public function getInstallUrl(): string {
-        return $this->baseUrl . '/install/' . urlencode($this->licenseKey);
+        // Redirect to buyer's own domain /install page (local redirect)
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return $protocol . '://' . $host . '/install.html?key=' . urlencode($this->licenseKey) . '&api=' . urlencode($this->baseUrl);
     }
     
     private function checkIntegrity(): bool {
@@ -134,7 +137,7 @@ class LicenseGuard {
     
     public function validateOrRedirect(?string $domain = null, ?string $productId = null): void {
         if (!$this->checkIntegrity()) {
-            header('Location: ' . $this->getInstallUrl() . '?error=tampered');
+            header('Location: ' . $this->getInstallUrl() . '&error=tampered');
             exit;
         }
         
@@ -324,8 +327,14 @@ export class LicenseGuard {
     }
   }
 
-  getInstallUrl(): string {
-    return \`\${this.baseUrl}/install/\${encodeURIComponent(this.licenseKey)}\`;
+  getInstallUrl(req?: any): string {
+    // Redirect to buyer's own domain /install page (local redirect)
+    if (req) {
+      const protocol = req.protocol || 'http';
+      const host = req.get?.('host') || req.headers?.host || 'localhost';
+      return \`\${protocol}://\${host}/install.html?key=\${encodeURIComponent(this.licenseKey)}&api=\${encodeURIComponent(this.baseUrl)}\`;
+    }
+    return \`/install.html?key=\${encodeURIComponent(this.licenseKey)}&api=\${encodeURIComponent(this.baseUrl)}\`;
   }
 
   private async getNonce(): Promise<{ nonce: string; timestamp: number } | null> {
@@ -402,7 +411,7 @@ export class LicenseGuard {
   async validateOrRedirect(req?: any, res?: any, domain?: string): Promise<ValidateResult | void> {
     if (!this.checkIntegrity()) {
       if (res?.redirect) {
-        return res.redirect(this.getInstallUrl() + '?error=tampered');
+        return res.redirect(this.getInstallUrl(req) + '&error=tampered');
       }
       throw new Error('SDK integrity check failed');
     }
@@ -416,7 +425,7 @@ export class LicenseGuard {
       if (!result.valid) {
         this.clearCache();
         if (res?.redirect) {
-          return res.redirect(this.getInstallUrl());
+          return res.redirect(this.getInstallUrl(req));
         }
         throw new Error('License invalid: ' + result.message);
       }
@@ -424,7 +433,7 @@ export class LicenseGuard {
     } catch (err) {
       this.clearCache();
       if (res?.redirect) {
-        return res.redirect(this.getInstallUrl());
+        return res.redirect(this.getInstallUrl(req));
       }
       throw err;
     }
@@ -582,8 +591,13 @@ class LicenseGuard:
         except Exception:
             return True
 
-    def get_install_url(self) -> str:
-        return f'{self.base_url}/install/{quote(self.license_key)}'
+    def get_install_url(self, request=None) -> str:
+        # Redirect to buyer's own domain /install page (local redirect)
+        if request:
+            host = request.host if hasattr(request, 'host') else 'localhost'
+            scheme = request.scheme if hasattr(request, 'scheme') else 'http'
+            return f'{scheme}://{host}/install.html?key={quote(self.license_key)}&api={quote(self.base_url)}'
+        return f'/install.html?key={quote(self.license_key)}&api={quote(self.base_url)}'
 
     def _get_nonce(self) -> Optional[Dict[str, Any]]:
         try:
@@ -991,13 +1005,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Skip install page itself
+  if (request.nextUrl.pathname === '/install.html') {
+    return NextResponse.next();
+  }
+
   try {
     const result = await lg.validate(request.headers.get('host') || '');
     if (!result.valid) {
-      return NextResponse.redirect(lg.getInstallUrl());
+      return NextResponse.redirect(new URL(lg.getInstallUrl(), request.url));
     }
   } catch {
-    return NextResponse.redirect(lg.getInstallUrl());
+    return NextResponse.redirect(new URL(lg.getInstallUrl(), request.url));
   }
   return NextResponse.next();
 }
@@ -1021,19 +1040,19 @@ const lg = new LicenseGuard(
 
 // License middleware - runs before every request
 app.use(async (req, res, next) => {
-  // Skip for static assets
-  if (req.path.startsWith('/assets') || req.path.startsWith('/public')) {
+  // Skip for static assets and install page
+  if (req.path.startsWith('/assets') || req.path.startsWith('/public') || req.path === '/install.html') {
     return next();
   }
   
   try {
     const result = await lg.validate(req.hostname);
     if (!result.valid) {
-      return res.redirect(lg.getInstallUrl());
+      return res.redirect(lg.getInstallUrl(req));
     }
     next();
   } catch {
-    return res.redirect(lg.getInstallUrl());
+    return res.redirect(lg.getInstallUrl(req));
   }
 });
 
@@ -1066,15 +1085,15 @@ lg = LicenseGuard(
 @app.before_request
 def check_license():
     from flask import request
-    # Skip for static files
-    if request.path.startswith('/static'):
+    # Skip for static files and install page
+    if request.path.startswith('/static') or request.path == '/install.html':
         return None
     try:
         result = lg.validate(domain=request.host)
         if not result.get('valid'):
-            return redirect(lg.get_install_url())
+            return redirect(lg.get_install_url(request))
     except Exception:
-        return redirect(lg.get_install_url())
+        return redirect(lg.get_install_url(request))
 
 @app.route('/')
 def index():
@@ -1098,16 +1117,16 @@ class LicenseMiddleware:
         )
 
     def __call__(self, request):
-        # Skip for admin and static files
-        if request.path.startswith('/admin') or request.path.startswith('/static'):
+        # Skip for admin, static files, and install page
+        if request.path.startswith('/admin') or request.path.startswith('/static') or request.path == '/install.html':
             return self.get_response(request)
             
         try:
             result = self.lg.validate(domain=request.get_host())
             if not result.get('valid'):
-                return redirect(self.lg.get_install_url())
+                return redirect(self.lg.get_install_url(request))
         except Exception:
-            return redirect(self.lg.get_install_url())
+            return redirect(self.lg.get_install_url(request))
         
         return self.get_response(request)
 
@@ -1139,16 +1158,16 @@ lg = LicenseGuard(
 
 @app.middleware("http")
 async def license_check(request: Request, call_next):
-    # Skip for docs and static
-    if request.url.path in ['/docs', '/openapi.json', '/redoc']:
+    # Skip for docs, static, and install page
+    if request.url.path in ['/docs', '/openapi.json', '/redoc', '/install.html']:
         return await call_next(request)
     
     try:
         result = lg.validate(domain=request.headers.get('host', ''))
         if not result.get('valid'):
-            return RedirectResponse(url=lg.get_install_url())
+            return RedirectResponse(url=lg.get_install_url(request))
     except Exception:
-        return RedirectResponse(url=lg.get_install_url())
+        return RedirectResponse(url=lg.get_install_url(request))
     
     return await call_next(request)
 
@@ -1164,12 +1183,15 @@ const projectStructurePhp = `your-source-code/
   index.php            <-- Entry point, includes config.php
   config.php           <-- License check happens here
   LicenseGuard.php     <-- SDK file (downloaded from CTRXL)
+  install.html         <-- License activation page (auto-redirect target)
   .env.example         <-- Template for buyer to fill in
   README.md            <-- Installation instructions for buyer
   ... (your app files)`;
 
 const projectStructureNextjs = `your-source-code/
   middleware.ts         <-- License check middleware
+  public/
+    install.html        <-- License activation page (auto-redirect target)
   lib/
     license-guard.ts    <-- SDK file (downloaded from CTRXL)
   .env.example          <-- Template for buyer to fill in
@@ -1179,6 +1201,8 @@ const projectStructureNextjs = `your-source-code/
 const projectStructurePython = `your-source-code/
   app.py               <-- Entry point with license middleware
   license_guard.py     <-- SDK file (downloaded from CTRXL)
+  static/
+    install.html       <-- License activation page (auto-redirect target)
   .env.example         <-- Template for buyer to fill in
   requirements.txt     <-- Include 'requests' dependency
   README.md            <-- Installation instructions for buyer
@@ -1214,6 +1238,37 @@ ${baseUrl}/install/YOUR-LICENSE-KEY
 
 ## Need Help?
 Visit your license installation page for detailed setup instructions.`;
+
+async function encryptAndDownload(code: string, language: string, filename: string, toast: any) {
+  try {
+    const res = await fetch("/api/sdk/encrypt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ code, language }),
+    });
+    if (!res.ok) throw new Error("Encryption failed");
+    const data = await res.json();
+    const ext = filename.split(".").pop();
+    const encFilename = filename.replace(`.${ext}`, `.encrypted.${ext}`);
+    downloadFile(data.encrypted, encFilename);
+    toast({ title: `${encFilename} downloaded (encrypted)` });
+  } catch (err: any) {
+    toast({ title: "Encryption failed", description: err.message, variant: "destructive" });
+  }
+}
+
+async function downloadInstallPage(toast: any) {
+  try {
+    const res = await fetch("/api/sdk/install-page", { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to generate install page");
+    const html = await res.text();
+    downloadFile(html, "install.html");
+    toast({ title: "install.html downloaded" });
+  } catch (err: any) {
+    toast({ title: "Download failed", description: err.message, variant: "destructive" });
+  }
+}
 
 export default function DownloadsPage() {
   const { toast } = useToast();
@@ -1456,16 +1511,26 @@ export default function DownloadsPage() {
                         ))}
                       </div>
                     </div>
-                    <Button
-                      onClick={() => {
-                        downloadFile(sdk.generate(), sdk.filename);
-                        toast({ title: `${sdk.filename} downloaded` });
-                      }}
-                      data-testid={`button-download-${sdk.id}`}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download {sdk.filename}
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={() => {
+                          downloadFile(sdk.generate(), sdk.filename);
+                          toast({ title: `${sdk.filename} downloaded` });
+                        }}
+                        data-testid={`button-download-${sdk.id}`}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download {sdk.filename}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => encryptAndDownload(sdk.generate(), sdk.id === "nextjs" ? "typescript" : sdk.id, sdk.filename, toast)}
+                        data-testid={`button-download-encrypted-${sdk.id}`}
+                      >
+                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        Encrypted Version
+                      </Button>
+                    </div>
                   </div>
 
                   <div>
@@ -1476,6 +1541,37 @@ export default function DownloadsPage() {
               </TabsContent>
             ))}
           </Tabs>
+
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold text-lg">Install Page (install.html)</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Download the standalone license activation page. This file should be placed in your source code's public/root directory. When the SDK detects an invalid or missing license, it automatically redirects buyers to this page on their own domain.
+            </p>
+            <div className="bg-muted/30 rounded-md p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-sm">
+                <Badge variant="secondary">Buyer opens app</Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                <Badge variant="secondary">SDK checks license</Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                <Badge className="bg-primary/10 text-primary border-primary/20">Redirect to /install.html</Badge>
+                <ArrowRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                <Badge variant="secondary">Buyer activates license</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The install page runs entirely on the buyer's domain (e.g., <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">ctrxl.id/install.html</code>) and communicates with the CTRXL API to validate licenses.
+              </p>
+            </div>
+            <Button
+              onClick={() => downloadInstallPage(toast)}
+              data-testid="button-download-install-html"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download install.html
+            </Button>
+          </Card>
         </div>
       )}
 
