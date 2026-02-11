@@ -118,6 +118,7 @@ cloudflare-pages/
 - `POST /api/v1/nonce` - Generate nonce for challenge-response validation
 - `POST /api/v1/licenses/verify-token` - Verify validation token authenticity
 - `/portal` - Customer portal (license lookup by email)
+- `/sample` - Live demo page showing installation flow, API validation, SDK integration, and customer portal preview
 - `POST /api/portal/licenses` - Customer portal API (email-based license lookup)
 
 ## Running

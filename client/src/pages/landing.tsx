@@ -44,6 +44,9 @@ export default function LandingPage() {
               <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
                 Pricing
               </a>
+              <a href="/sample" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                Sample
+              </a>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -94,6 +97,13 @@ export default function LandingPage() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Pricing
+            </a>
+            <a
+              href="/sample"
+              className="block text-sm text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Sample
             </a>
             <div className="flex flex-col gap-2 pt-2 border-t">
               <a href="/auth">

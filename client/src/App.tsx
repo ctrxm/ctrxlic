@@ -27,6 +27,7 @@ import AdminSettingsPage from "@/pages/admin-settings";
 import InstallPage from "@/pages/install";
 import WebhooksPage from "@/pages/webhooks";
 import CustomerPortalPage from "@/pages/customer-portal";
+import SamplePage from "@/pages/sample";
 import { NotificationsBell } from "@/components/notifications-bell";
 import ctrxlLogo from "@/assets/images/ctrxl-logo.png";
 
@@ -123,6 +124,10 @@ function AppContent() {
 
   if (location === "/portal") {
     return <CustomerPortalPage />;
+  }
+
+  if (location === "/sample") {
+    return <SamplePage />;
   }
 
   if (isLoading) {
