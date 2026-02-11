@@ -118,7 +118,7 @@ function AppContent() {
     return <AuthPage />;
   }
 
-  if (location.startsWith("/install/")) {
+  if (location === "/install" || location.startsWith("/install/")) {
     return <InstallPage />;
   }
 

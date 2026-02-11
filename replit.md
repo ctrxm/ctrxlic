@@ -110,7 +110,8 @@ cloudflare-pages/
 ## Public Routes (no auth required)
 - `/` - Landing page
 - `/auth` - Login/Signup page (email/password)
-- `/install/:key` - License installation guide for buyers
+- `/install` - License activation form (buyer submits license key)
+- `/install/:key` - License activation wizard with pre-filled key
 - `GET /api/v1/licenses/info/:key` - Public license info
 - `POST /api/v1/licenses/validate` - License validation (requires API key header)
 - `POST /api/v1/licenses/activate` - License activation (requires API key header)
