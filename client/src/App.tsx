@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,7 +9,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { Skeleton } from "@/components/ui/skeleton";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
 import AuthPage from "@/pages/auth";
@@ -28,6 +28,7 @@ import InstallPage from "@/pages/install";
 import WebhooksPage from "@/pages/webhooks";
 import CustomerPortalPage from "@/pages/customer-portal";
 import { NotificationsBell } from "@/components/notifications-bell";
+import ctrxlLogo from "@/assets/images/ctrxl-logo.png";
 
 function AuthenticatedLayout() {
   const style = {
@@ -72,6 +73,42 @@ function AuthenticatedLayout() {
   );
 }
 
+function SplashScreen() {
+  const [fadeOut, setFadeOut] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setFadeOut(true), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-background transition-opacity duration-500 ${fadeOut ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      data-testid="splash-screen"
+    >
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-2xl animate-pulse" />
+          <img
+            src={ctrxlLogo}
+            alt="CTRXL"
+            className="relative h-20 w-20 rounded-2xl object-cover animate-[splash-logo_0.8s_ease-out_forwards]"
+          />
+        </div>
+        <div className="flex flex-col items-center gap-2 animate-[splash-text_0.6s_ease-out_0.3s_both]">
+          <span className="text-xl font-bold tracking-tight">CTRXL LICENSE</span>
+          <span className="text-xs text-muted-foreground tracking-widest uppercase">Loading</span>
+        </div>
+        <div className="flex gap-1.5 animate-[splash-text_0.6s_ease-out_0.5s_both]">
+          <div className="h-1.5 w-1.5 rounded-full bg-primary animate-[splash-dot_1.4s_ease-in-out_infinite]" />
+          <div className="h-1.5 w-1.5 rounded-full bg-primary animate-[splash-dot_1.4s_ease-in-out_0.2s_infinite]" />
+          <div className="h-1.5 w-1.5 rounded-full bg-primary animate-[splash-dot_1.4s_ease-in-out_0.4s_infinite]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
@@ -89,14 +126,7 @@ function AppContent() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="space-y-4 text-center">
-          <Skeleton className="h-12 w-12 rounded-md mx-auto" />
-          <Skeleton className="h-4 w-32 mx-auto" />
-        </div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) {

@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Key, ArrowLeft } from "lucide-react";
+import ctrxlLogo from "@/assets/images/ctrxl-logo.png";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -56,9 +57,7 @@ export default function AuthPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 h-16">
             <a href="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <Key className="h-4 w-4 text-primary-foreground" />
-              </div>
+              <img src={ctrxlLogo} alt="CTRXL" className="h-8 w-8 rounded-md object-cover" />
               <span className="font-semibold text-lg tracking-tight">CTRXL LICENSE</span>
             </a>
             <ThemeToggle />
@@ -69,9 +68,7 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-6 space-y-6">
           <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-md bg-primary flex items-center justify-center mx-auto">
-              <Key className="h-6 w-6 text-primary-foreground" />
-            </div>
+            <img src={ctrxlLogo} alt="CTRXL" className="h-12 w-12 rounded-md object-cover mx-auto" />
             <h1 className="text-2xl font-bold tracking-tight">
               {mode === "login" ? "Sign In" : "Create Account"}
             </h1>

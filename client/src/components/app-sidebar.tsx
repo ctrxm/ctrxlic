@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import ctrxlLogo from "@/assets/images/ctrxl-logo.png";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, color: "text-blue-500" },
@@ -68,9 +69,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-md bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
-            <Key className="h-4.5 w-4.5 text-white" />
-          </div>
+          <img src={ctrxlLogo} alt="CTRXL" className="h-9 w-9 rounded-md object-cover" />
           <div>
             <span className="font-bold text-sm tracking-tight" data-testid="text-sidebar-brand">
               CTRXL LICENSE

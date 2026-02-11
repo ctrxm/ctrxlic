@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ctrxlLogo from "@/assets/images/ctrxl-logo.png";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +29,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 h-16">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <Key className="h-4 w-4 text-primary-foreground" />
-              </div>
+              <img src={ctrxlLogo} alt="CTRXL" className="h-8 w-8 rounded-md object-cover" />
               <span className="font-semibold text-lg tracking-tight" data-testid="text-brand-name">
                 CTRXL LICENSE
               </span>
@@ -414,9 +413,7 @@ if (result.valid) {
       <footer className="py-8 sm:py-12 px-4 border-t">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
-              <Key className="h-3 w-3 text-primary-foreground" />
-            </div>
+            <img src={ctrxlLogo} alt="CTRXL" className="h-6 w-6 rounded-md object-cover" />
             <span className="font-semibold text-sm">CTRXL LICENSE</span>
           </div>
           <p className="text-sm text-muted-foreground">
