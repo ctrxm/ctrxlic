@@ -13,6 +13,8 @@ import {
   ScrollText,
   PieChart,
   ChevronRight,
+  Sparkles,
+  Send,
 } from "lucide-react";
 import {
   Sidebar,
@@ -140,13 +142,26 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-3">
         <SidebarSeparator className="mb-3" />
+        <a href="https://t.me/lutaubos" target="_blank" rel="noopener noreferrer" className="block mb-3">
+          <div className="rounded-md bg-gradient-to-r from-primary/10 to-violet-500/10 p-3 border border-primary/10">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold">Upgrade to Pro</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mb-2">Unlock unlimited products & licenses</p>
+            <Button size="sm" className="w-full" data-testid="button-sidebar-upgrade">
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Contact Telegram
+            </Button>
+          </div>
+        </a>
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border-2 border-primary/20">
             <AvatarImage src={user?.profileImageUrl || undefined} />
             <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold truncate" data-testid="text-user-name">
                 {user?.firstName} {user?.lastName}
               </p>

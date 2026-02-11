@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Menu,
   X,
+  Send,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -382,15 +383,28 @@ if (result.valid) {
                     </li>
                   ))}
                 </ul>
-                <a href="/auth">
-                  <Button
-                    className="w-full"
-                    variant={plan.popular ? "default" : "outline"}
-                    data-testid={`button-plan-${plan.name.toLowerCase()}`}
-                  >
-                    Get Started
-                  </Button>
-                </a>
+                {plan.name === "Free" ? (
+                  <a href="/auth">
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      data-testid={`button-plan-${plan.name.toLowerCase()}`}
+                    >
+                      Get Started
+                    </Button>
+                  </a>
+                ) : (
+                  <a href="https://t.me/lutaubos" target="_blank" rel="noopener noreferrer">
+                    <Button
+                      className="w-full"
+                      variant={plan.popular ? "default" : "outline"}
+                      data-testid={`button-plan-${plan.name.toLowerCase()}`}
+                    >
+                      <Send className="h-4 w-4 mr-1.5" />
+                      Contact via Telegram
+                    </Button>
+                  </a>
+                )}
               </Card>
             ))}
           </div>

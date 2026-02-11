@@ -44,18 +44,18 @@ export function StatCard({ title, value, change, icon: Icon, trend = "neutral", 
   const colors = colorMap[color];
 
   return (
-    <Card className="relative overflow-visible p-5 hover-elevate" data-testid={testId}>
+    <Card className="relative overflow-visible p-3 sm:p-5 hover-elevate" data-testid={testId}>
       <div className={`absolute inset-0 rounded-md bg-gradient-to-br ${colors.accent} pointer-events-none`} />
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-3xl font-bold tracking-tight">{value}</p>
+      <div className="relative flex items-start justify-between gap-2 sm:gap-4">
+        <div className="space-y-1 sm:space-y-2 min-w-0">
+          <p className="text-[11px] sm:text-sm text-muted-foreground font-medium truncate">{title}</p>
+          <p className="text-xl sm:text-3xl font-bold tracking-tight">{value}</p>
           {change && (
             <div className="flex items-center gap-1">
-              {trend === "up" && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
-              {trend === "down" && <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
+              {trend === "up" && <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-500" />}
+              {trend === "down" && <TrendingDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-500" />}
               <p
-                className={`text-xs font-medium ${
+                className={`text-[10px] sm:text-xs font-medium ${
                   trend === "up"
                     ? "text-emerald-600 dark:text-emerald-400"
                     : trend === "down"
@@ -68,8 +68,8 @@ export function StatCard({ title, value, change, icon: Icon, trend = "neutral", 
             </div>
           )}
         </div>
-        <div className={`h-11 w-11 rounded-md ${colors.bg} flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`h-5 w-5 ${colors.icon}`} />
+        <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-md ${colors.bg} flex items-center justify-center flex-shrink-0`}>
+          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${colors.icon}`} />
         </div>
       </div>
     </Card>

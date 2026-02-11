@@ -20,6 +20,8 @@ import {
   FileCode,
   ArrowUpRight,
   BarChart3,
+  Sparkles,
+  Send,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,10 +45,10 @@ const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; c
 };
 
 const quickActions = [
-  { title: "New Product", description: "Create a software product", icon: Package, href: "/products", color: "text-blue-500" },
-  { title: "Generate License", description: "Issue a new license key", icon: Key, href: "/licenses", color: "text-emerald-500" },
-  { title: "API Keys", description: "Manage your API keys", icon: ShieldCheck, href: "/api-keys", color: "text-violet-500" },
-  { title: "View Docs", description: "API documentation", icon: FileCode, href: "/docs", color: "text-amber-500" },
+  { title: "New Product", description: "Create a software product", icon: Package, href: "/products", color: "text-blue-500", bg: "bg-blue-500/10" },
+  { title: "Generate License", description: "Issue a new license key", icon: Key, href: "/licenses", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  { title: "API Keys", description: "Manage your API keys", icon: ShieldCheck, href: "/api-keys", color: "text-violet-500", bg: "bg-violet-500/10" },
+  { title: "View Docs", description: "API documentation", icon: FileCode, href: "/docs", color: "text-amber-500", bg: "bg-amber-500/10" },
 ];
 
 export default function DashboardPage() {
@@ -58,16 +60,16 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-32 w-full rounded-md" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-md" />
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <Skeleton className="h-28 sm:h-32 w-full rounded-md" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 sm:h-28 rounded-md" />
           ))}
         </div>
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Skeleton className="h-72 rounded-md" />
-          <Skeleton className="h-72 rounded-md" />
+        <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
+          <Skeleton className="h-64 sm:h-72 rounded-md" />
+          <Skeleton className="h-64 sm:h-72 rounded-md" />
         </div>
       </div>
     );
@@ -85,61 +87,61 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px]">
-      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 border border-primary/10 animate-fade-in">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1400px]">
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 sm:p-6 border border-primary/10 animate-fade-in">
+        <div className="absolute top-0 right-0 w-40 sm:w-64 h-40 sm:h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-32 sm:w-48 h-32 sm:h-48 bg-violet-500/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
+        <div className="relative space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Zap className="h-4 w-4 text-primary" />
+              <Zap className="h-4 w-4 text-primary animate-pulse-subtle" />
               <span className="text-xs font-medium text-primary uppercase tracking-wider">Dashboard</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
               {greeting}, {user?.firstName || "User"}
             </h1>
-            <p className="text-muted-foreground mt-1 max-w-md">
-              Manage your software licenses, track activations, and monitor your products all in one place.
+            <p className="text-muted-foreground mt-1 max-w-md text-sm sm:text-base">
+              Manage your software licenses, track activations, and monitor your products.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/products">
-              <Button variant="outline" data-testid="button-new-product">
+              <Button variant="outline" size="sm" data-testid="button-new-product">
                 <Plus className="h-4 w-4 mr-1" />
-                New Product
+Product
               </Button>
             </Link>
             <Link href="/licenses">
-              <Button data-testid="button-new-license">
+              <Button size="sm" data-testid="button-new-license">
                 <Key className="h-4 w-4 mr-1" />
-                Generate License
+License
               </Button>
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-fade-in stagger-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in stagger-1">
         <StatCard
-          title="Total Products"
+          title="Products"
           value={stats?.totalProducts ?? 0}
           icon={Package}
           color="blue"
           testId="stat-products"
         />
         <StatCard
-          title="Total Licenses"
+          title="Licenses"
           value={stats?.totalLicenses ?? 0}
           icon={Key}
           color="purple"
           testId="stat-licenses"
         />
         <StatCard
-          title="Active Licenses"
+          title="Active"
           value={stats?.activeLicenses ?? 0}
           icon={Activity}
           color="green"
-          change={stats?.totalLicenses ? `${activePct}% of total` : undefined}
+          change={stats?.totalLicenses ? `${activePct}%` : undefined}
           trend="up"
           testId="stat-active"
         />
@@ -150,53 +152,57 @@ export default function DashboardPage() {
           color="orange"
           testId="stat-apikeys"
         />
-        <StatCard
-          title="Activations"
-          value={stats?.totalActivations ?? 0}
-          icon={Globe}
-          color="red"
-          testId="stat-activations"
-        />
+        <div className="col-span-2 sm:col-span-1">
+          <StatCard
+            title="Activations"
+            value={stats?.totalActivations ?? 0}
+            icon={Globe}
+            color="red"
+            testId="stat-activations"
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in stagger-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 animate-fade-in stagger-2">
         {quickActions.map((action) => (
           <Link key={action.title} href={action.href}>
-            <Card className="p-4 hover-elevate cursor-pointer" data-testid={`quick-action-${action.title.toLowerCase().replace(/\s/g, "-")}`}>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <action.icon className={`h-5 w-5 ${action.color}`} />
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <Card className="p-3 sm:p-4 hover-elevate cursor-pointer h-full" data-testid={`quick-action-${action.title.toLowerCase().replace(/\s/g, "-")}`}>
+              <div className="flex items-start justify-between gap-1 mb-1.5 sm:mb-2">
+                <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-md ${action.bg} flex items-center justify-center flex-shrink-0`}>
+                  <action.icon className={`h-4 w-4 ${action.color}`} />
+                </div>
+                <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
               </div>
-              <p className="text-sm font-medium">{action.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
+              <p className="text-xs sm:text-sm font-medium leading-tight">{action.title}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-tight hidden sm:block">{action.description}</p>
             </Card>
           </Link>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 animate-fade-in stagger-3">
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-violet-500/10 flex items-center justify-center">
-                <Key className="h-4 w-4 text-violet-500" />
+      <div className="grid md:grid-cols-2 gap-4 sm:gap-6 animate-fade-in stagger-3">
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                <Key className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-500" />
               </div>
-              <div>
-                <h2 className="font-semibold">Recent Licenses</h2>
-                <p className="text-xs text-muted-foreground">Latest issued license keys</p>
+              <div className="min-w-0">
+                <h2 className="font-semibold text-sm sm:text-base">Recent Licenses</h2>
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Latest issued license keys</p>
               </div>
             </div>
             <Link href="/licenses">
               <Button variant="ghost" size="sm" data-testid="link-view-all-licenses">
-                View All
-                <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                <span className="hidden sm:inline">View All</span>
+                <ArrowRight className="h-3.5 w-3.5 sm:ml-1" />
               </Button>
             </Link>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             {(!stats?.recentLicenses || stats.recentLicenses.length === 0) ? (
-              <div className="text-center py-10">
-                <Key className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <div className="text-center py-8 sm:py-10">
+                <Key className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground/30 mx-auto mb-2 sm:mb-3" />
                 <p className="text-sm text-muted-foreground">No licenses yet</p>
                 <p className="text-xs text-muted-foreground mt-1">Generate your first license to get started</p>
                 <Link href="/licenses">
@@ -213,29 +219,27 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={license.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-md hover-elevate"
+                    className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-md hover-elevate"
                     data-testid={`license-row-${license.id}`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`h-8 w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                         license.status === "active" ? "bg-emerald-500/10" :
                         license.status === "revoked" ? "bg-red-500/10" :
                         "bg-amber-500/10"
                       }`}>
-                        <StatusIcon className={`h-4 w-4 ${config.className}`} />
+                        <StatusIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${config.className}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-mono truncate font-medium">{license.licenseKey}</p>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs sm:text-sm font-mono truncate font-medium">{license.licenseKey}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                           {license.productName || license.productId} &middot; {license.customerName || license.customerEmail || "No customer"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="secondary" className="text-xs">
-                        {license.type}
-                      </Badge>
-                    </div>
+                    <Badge variant="secondary" className="text-[10px] sm:text-xs flex-shrink-0">
+                      {license.type}
+                    </Badge>
                   </div>
                 );
               })
@@ -243,28 +247,28 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-blue-500/10 flex items-center justify-center">
-                <Package className="h-4 w-4 text-blue-500" />
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
               </div>
-              <div>
-                <h2 className="font-semibold">Products</h2>
-                <p className="text-xs text-muted-foreground">Your software products</p>
+              <div className="min-w-0">
+                <h2 className="font-semibold text-sm sm:text-base">Products</h2>
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Your software products</p>
               </div>
             </div>
             <Link href="/products">
               <Button variant="ghost" size="sm" data-testid="link-view-all-products">
-                View All
-                <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                <span className="hidden sm:inline">View All</span>
+                <ArrowRight className="h-3.5 w-3.5 sm:ml-1" />
               </Button>
             </Link>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             {(!stats?.recentProducts || stats.recentProducts.length === 0) ? (
-              <div className="text-center py-10">
-                <Package className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <div className="text-center py-8 sm:py-10">
+                <Package className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground/30 mx-auto mb-2 sm:mb-3" />
                 <p className="text-sm text-muted-foreground">No products yet</p>
                 <p className="text-xs text-muted-foreground mt-1">Create your first product to get started</p>
                 <Link href="/products">
@@ -278,23 +282,23 @@ export default function DashboardPage() {
               stats.recentProducts.slice(0, 5).map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-md hover-elevate"
+                  className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-md hover-elevate"
                   data-testid={`product-row-${product.id}`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`h-8 w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                       product.isActive ? "bg-blue-500/10" : "bg-muted"
                     }`}>
-                      <Package className={`h-4 w-4 ${product.isActive ? "text-blue-500" : "text-muted-foreground"}`} />
+                      <Package className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${product.isActive ? "text-blue-500" : "text-muted-foreground"}`} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{product.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs sm:text-sm font-medium truncate">{product.name}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                         v{product.version} &middot; {product.slug}
                       </p>
                     </div>
                   </div>
-                  <Badge variant={product.isActive ? "default" : "outline"} className="text-xs flex-shrink-0">
+                  <Badge variant={product.isActive ? "default" : "outline"} className="text-[10px] sm:text-xs flex-shrink-0">
                     {product.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
@@ -304,43 +308,80 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="p-5 animate-fade-in stagger-4">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
-              <BarChart3 className="h-4 w-4 text-primary" />
+      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 animate-fade-in stagger-4">
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-sm sm:text-base">Overview</h2>
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">License distribution</p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-semibold">Overview</h2>
-              <p className="text-xs text-muted-foreground">License distribution summary</p>
+            <Link href="/statistics">
+              <Button variant="ghost" size="sm" data-testid="link-view-statistics">
+                <span className="hidden sm:inline">Full Stats</span>
+                <ArrowRight className="h-3.5 w-3.5 sm:ml-1" />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="text-center p-3 sm:p-4 rounded-md bg-emerald-500/5 border border-emerald-500/10">
+              <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats?.activeLicenses ?? 0}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Active</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 rounded-md bg-blue-500/5 border border-blue-500/10">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{stats?.totalProducts ?? 0}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Products</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 rounded-md bg-violet-500/5 border border-violet-500/10">
+              <div className="text-xl sm:text-2xl font-bold text-violet-600 dark:text-violet-400">{stats?.totalActivations ?? 0}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Activations</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 rounded-md bg-amber-500/5 border border-amber-500/10">
+              <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{stats?.totalApiKeys ?? 0}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">API Keys</div>
             </div>
           </div>
-          <Link href="/statistics">
-            <Button variant="ghost" size="sm" data-testid="link-view-statistics">
-              Full Stats
-              <ArrowRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 rounded-md bg-emerald-500/5 border border-emerald-500/10">
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats?.activeLicenses ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">Active</div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 relative overflow-visible">
+          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-primary/5 via-violet-500/5 to-transparent pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary animate-pulse-subtle" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-sm sm:text-base">Upgrade to Pro</h2>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Unlock premium features</p>
+              </div>
+            </div>
+            <ul className="space-y-2 mb-4">
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <span>Unlimited products & licenses</span>
+              </li>
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <span>Priority support & webhooks</span>
+              </li>
+              <li className="flex items-center gap-2 text-xs sm:text-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <span>Advanced analytics & reports</span>
+              </li>
+            </ul>
+            <a href="https://t.me/lutaubos" target="_blank" rel="noopener noreferrer">
+              <Button className="w-full" data-testid="button-upgrade-telegram">
+                <Send className="h-4 w-4 mr-1.5" />
+                Contact via Telegram
+              </Button>
+            </a>
           </div>
-          <div className="text-center p-4 rounded-md bg-blue-500/5 border border-blue-500/10">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats?.totalProducts ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">Products</div>
-          </div>
-          <div className="text-center p-4 rounded-md bg-violet-500/5 border border-violet-500/10">
-            <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">{stats?.totalActivations ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">Activations</div>
-          </div>
-          <div className="text-center p-4 rounded-md bg-amber-500/5 border border-amber-500/10">
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats?.totalApiKeys ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">API Keys</div>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
