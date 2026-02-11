@@ -51,6 +51,20 @@ const quickActions = [
   { title: "View Docs", description: "API documentation", icon: FileCode, href: "/docs", color: "text-amber-500", bg: "bg-amber-500/10" },
 ];
 
+const quickActionGradients: Record<string, string> = {
+  "text-blue-500": "from-blue-500 to-cyan-400",
+  "text-emerald-500": "from-emerald-500 to-teal-400",
+  "text-violet-500": "from-violet-500 to-purple-400",
+  "text-amber-500": "from-amber-500 to-orange-400",
+};
+
+const quickActionBorders: Record<string, string> = {
+  "text-blue-500": "from-blue-500 via-cyan-400 to-transparent",
+  "text-emerald-500": "from-emerald-500 via-teal-400 to-transparent",
+  "text-violet-500": "from-violet-500 via-purple-400 to-transparent",
+  "text-amber-500": "from-amber-500 via-orange-400 to-transparent",
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
 
@@ -88,31 +102,37 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1400px]">
-      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 sm:p-6 border border-primary/10 animate-fade-in">
-        <div className="absolute top-0 right-0 w-40 sm:w-64 h-40 sm:h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-32 sm:w-48 h-32 sm:h-48 bg-violet-500/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-5 sm:p-7 animate-fade-in">
+        <div className="absolute top-4 right-8 w-3 h-3 rounded-full bg-white/20 animate-pulse-subtle" />
+        <div className="absolute top-12 right-24 w-2 h-2 rounded-full bg-white/15" />
+        <div className="absolute bottom-6 right-16 w-4 h-4 rounded-full bg-white/10" />
+        <div className="absolute top-8 left-1/3 w-2.5 h-2.5 rounded-full bg-white/15 animate-pulse-subtle" style={{ animationDelay: "0.5s" }} />
+        <div className="absolute bottom-4 left-1/4 w-2 h-2 rounded-full bg-white/10" />
+        <div className="absolute top-1/2 right-1/3 w-1.5 h-1.5 rounded-full bg-white/20" />
+        <div className="absolute top-0 right-0 w-48 sm:w-72 h-48 sm:h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-40 sm:w-56 h-40 sm:h-56 bg-indigo-400/10 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
         <div className="relative space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Zap className="h-4 w-4 text-primary animate-pulse-subtle" />
-              <span className="text-xs font-medium text-primary uppercase tracking-wider">Dashboard</span>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Zap className="h-4 w-4 text-amber-300 animate-pulse-subtle" />
+              <span className="text-xs font-semibold text-white/80 uppercase tracking-wider">Dashboard</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white" data-testid="text-dashboard-title">
               {greeting}, {user?.firstName || "User"}
             </h1>
-            <p className="text-muted-foreground mt-1 max-w-md text-sm sm:text-base">
+            <p className="text-white/70 mt-1 max-w-md text-sm sm:text-base">
               Manage your software licenses, track activations, and monitor your products.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/products">
-              <Button variant="outline" size="sm" data-testid="button-new-product">
+              <Button variant="outline" size="sm" className="bg-white/10 border-white/20 text-white backdrop-blur-sm" data-testid="button-new-product">
                 <Plus className="h-4 w-4 mr-1" />
 Product
               </Button>
             </Link>
             <Link href="/licenses">
-              <Button size="sm" data-testid="button-new-license">
+              <Button size="sm" className="bg-white text-violet-700 border-white/80" data-testid="button-new-license">
                 <Key className="h-4 w-4 mr-1" />
 License
               </Button>
@@ -166,10 +186,11 @@ License
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 animate-fade-in stagger-2">
         {quickActions.map((action) => (
           <Link key={action.title} href={action.href}>
-            <Card className="p-3 sm:p-4 hover-elevate cursor-pointer h-full" data-testid={`quick-action-${action.title.toLowerCase().replace(/\s/g, "-")}`}>
+            <Card className="relative p-3 sm:p-4 hover-elevate cursor-pointer h-full" data-testid={`quick-action-${action.title.toLowerCase().replace(/\s/g, "-")}`}>
+              <div className={`absolute top-0 left-0 right-0 h-0.5 rounded-t-md bg-gradient-to-r ${quickActionBorders[action.color]} opacity-70`} />
               <div className="flex items-start justify-between gap-1 mb-1.5 sm:mb-2">
-                <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-md ${action.bg} flex items-center justify-center flex-shrink-0`}>
-                  <action.icon className={`h-4 w-4 ${action.color}`} />
+                <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-md bg-gradient-to-br ${quickActionGradients[action.color]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                  <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
                 <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
               </div>
@@ -181,11 +202,11 @@ License
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 sm:gap-6 animate-fade-in stagger-3">
-        <Card className="p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                <Key className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-500" />
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-2 mb-4 sm:mb-5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-md bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Key className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div className="min-w-0">
                 <h2 className="font-semibold text-sm sm:text-base">Recent Licenses</h2>
@@ -219,11 +240,11 @@ License
                 return (
                   <div
                     key={license.id}
-                    className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-md hover-elevate"
+                    className="flex items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-md hover-elevate"
                     data-testid={`license-row-${license.id}`}
                   >
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+                      <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-md flex items-center justify-center flex-shrink-0 ${
                         license.status === "active" ? "bg-emerald-500/10" :
                         license.status === "revoked" ? "bg-red-500/10" :
                         "bg-amber-500/10"
@@ -247,11 +268,11 @@ License
           </div>
         </Card>
 
-        <Card className="p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-2 mb-4 sm:mb-5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-md bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div className="min-w-0">
                 <h2 className="font-semibold text-sm sm:text-base">Products</h2>
@@ -282,11 +303,11 @@ License
               stats.recentProducts.slice(0, 5).map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-md hover-elevate"
+                  className="flex items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-md hover-elevate"
                   data-testid={`product-row-${product.id}`}
                 >
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+                    <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-md flex items-center justify-center flex-shrink-0 ${
                       product.isActive ? "bg-blue-500/10" : "bg-muted"
                     }`}>
                       <Package className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${product.isActive ? "text-blue-500" : "text-muted-foreground"}`} />
@@ -309,11 +330,11 @@ License
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 animate-fade-in stagger-4">
-        <Card className="p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-2 mb-4 sm:mb-5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-md bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-sm">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
                 <h2 className="font-semibold text-sm sm:text-base">Overview</h2>
@@ -327,49 +348,52 @@ License
               </Button>
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="text-center p-3 sm:p-4 rounded-md bg-emerald-500/5 border border-emerald-500/10">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="text-center p-3.5 sm:p-4 rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20">
               <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats?.activeLicenses ?? 0}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Active</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium">Active</div>
             </div>
-            <div className="text-center p-3 sm:p-4 rounded-md bg-blue-500/5 border border-blue-500/10">
+            <div className="text-center p-3.5 sm:p-4 rounded-md bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20">
               <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{stats?.totalProducts ?? 0}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Products</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium">Products</div>
             </div>
-            <div className="text-center p-3 sm:p-4 rounded-md bg-violet-500/5 border border-violet-500/10">
+            <div className="text-center p-3.5 sm:p-4 rounded-md bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20">
               <div className="text-xl sm:text-2xl font-bold text-violet-600 dark:text-violet-400">{stats?.totalActivations ?? 0}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Activations</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium">Activations</div>
             </div>
-            <div className="text-center p-3 sm:p-4 rounded-md bg-amber-500/5 border border-amber-500/10">
+            <div className="text-center p-3.5 sm:p-4 rounded-md bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20">
               <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{stats?.totalApiKeys ?? 0}</div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">API Keys</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium">API Keys</div>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 sm:p-5 relative overflow-visible">
-          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-primary/5 via-violet-500/5 to-transparent pointer-events-none" />
+        <Card className="relative overflow-visible p-5 sm:p-6">
+          <div className="absolute inset-0 rounded-md bg-gradient-to-br from-violet-600/10 via-purple-500/8 to-indigo-600/5 dark:from-violet-500/15 dark:via-purple-500/10 dark:to-indigo-500/5 pointer-events-none" />
+          <div className="absolute top-6 right-6 w-2.5 h-2.5 rounded-full bg-violet-500/20 animate-pulse-subtle" />
+          <div className="absolute bottom-8 right-12 w-2 h-2 rounded-full bg-purple-500/15" />
+          <div className="absolute top-1/2 right-1/4 w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
           <div className="relative">
-            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-md bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary animate-pulse-subtle" />
+            <div className="flex items-center gap-3 mb-4 sm:mb-5">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-md bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-sm">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-white animate-pulse-subtle" />
               </div>
               <div>
                 <h2 className="font-semibold text-sm sm:text-base">Upgrade to Pro</h2>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">Unlock premium features</p>
               </div>
             </div>
-            <ul className="space-y-2 mb-4">
-              <li className="flex items-center gap-2 text-xs sm:text-sm">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+            <ul className="space-y-2.5 mb-5">
+              <li className="flex items-center gap-2.5 text-xs sm:text-sm">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                 <span>Unlimited products & licenses</span>
               </li>
-              <li className="flex items-center gap-2 text-xs sm:text-sm">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+              <li className="flex items-center gap-2.5 text-xs sm:text-sm">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                 <span>Priority support & webhooks</span>
               </li>
-              <li className="flex items-center gap-2 text-xs sm:text-sm">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+              <li className="flex items-center gap-2.5 text-xs sm:text-sm">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                 <span>Advanced analytics & reports</span>
               </li>
             </ul>

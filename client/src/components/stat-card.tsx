@@ -17,26 +17,31 @@ const colorMap = {
     bg: "bg-blue-500/10 dark:bg-blue-500/15",
     icon: "text-blue-600 dark:text-blue-400",
     accent: "from-blue-500/5 to-transparent",
+    gradient: "from-blue-500 to-cyan-400",
   },
   green: {
     bg: "bg-emerald-500/10 dark:bg-emerald-500/15",
     icon: "text-emerald-600 dark:text-emerald-400",
     accent: "from-emerald-500/5 to-transparent",
+    gradient: "from-emerald-500 to-teal-400",
   },
   purple: {
     bg: "bg-violet-500/10 dark:bg-violet-500/15",
     icon: "text-violet-600 dark:text-violet-400",
     accent: "from-violet-500/5 to-transparent",
+    gradient: "from-violet-500 to-purple-400",
   },
   orange: {
     bg: "bg-amber-500/10 dark:bg-amber-500/15",
     icon: "text-amber-600 dark:text-amber-400",
     accent: "from-amber-500/5 to-transparent",
+    gradient: "from-amber-500 to-orange-400",
   },
   red: {
     bg: "bg-red-500/10 dark:bg-red-500/15",
     icon: "text-red-600 dark:text-red-400",
     accent: "from-red-500/5 to-transparent",
+    gradient: "from-red-500 to-rose-400",
   },
 };
 
@@ -45,6 +50,7 @@ export function StatCard({ title, value, change, icon: Icon, trend = "neutral", 
 
   return (
     <Card className="relative overflow-visible p-3 sm:p-5 hover-elevate" data-testid={testId}>
+      <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-md bg-gradient-to-r ${colors.gradient} opacity-80`} />
       <div className={`absolute inset-0 rounded-md bg-gradient-to-br ${colors.accent} pointer-events-none`} />
       <div className="relative flex items-start justify-between gap-2 sm:gap-4">
         <div className="space-y-1 sm:space-y-2 min-w-0">
@@ -68,8 +74,8 @@ export function StatCard({ title, value, change, icon: Icon, trend = "neutral", 
             </div>
           )}
         </div>
-        <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-md ${colors.bg} flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${colors.icon}`} />
+        <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-md bg-gradient-to-br ${colors.gradient} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
         </div>
       </div>
     </Card>

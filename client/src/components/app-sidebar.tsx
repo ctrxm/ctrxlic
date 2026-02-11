@@ -12,7 +12,6 @@ import {
   Download,
   ScrollText,
   PieChart,
-  ChevronRight,
   Sparkles,
   Send,
   Webhook,
@@ -67,25 +66,25 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <img src={ctrxlLogo} alt="CTRXL" className="h-9 w-9 rounded-md object-cover" />
+      <SidebarHeader className="p-5">
+        <div className="flex items-center gap-3 rounded-md bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5 p-2 -m-2">
+          <img src={ctrxlLogo} alt="CTRXL" className="h-10 w-10 rounded-md object-cover" />
           <div>
             <span className="font-bold text-sm tracking-tight" data-testid="text-sidebar-brand">
               CTRXL LICENSE
             </span>
-            <p className="text-[11px] text-muted-foreground leading-tight">License Manager</p>
+            <p className="text-[11px] text-muted-foreground/70 leading-tight">License Manager</p>
           </div>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
-      <SidebarContent>
+      <SidebarContent className="py-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground/50 px-4 mb-1">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-0.5 px-2">
               {mainItems.map((item) => {
                 const isActive = location === item.url || location.startsWith(item.url + "/");
                 return (
@@ -93,11 +92,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
+                      className={isActive ? "bg-primary/10 rounded-md" : "rounded-md"}
                     >
                       <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
                         <item.icon className={`h-4 w-4 transition-colors duration-150 ${isActive ? "text-primary" : item.color}`} />
                         <span className="font-medium">{item.title}</span>
-                        {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary opacity-70" />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -108,16 +107,18 @@ export function AppSidebar() {
         </SidebarGroup>
         {isAdmin && (
           <>
-            <SidebarSeparator />
+            <div className="py-2 px-4">
+              <SidebarSeparator />
+            </div>
             <SidebarGroup>
-              <SidebarGroupLabel className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-widest font-medium text-muted-foreground/50 px-4 mb-1">
                 <span className="flex items-center gap-1.5">
                   Admin
                   <Badge variant="secondary" className="text-[9px] px-1 py-0 leading-tight">PRO</Badge>
                 </span>
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="space-y-0.5 px-2">
                   {adminItems.map((item) => {
                     const isActive = location === item.url || location.startsWith(item.url + "/");
                     return (
@@ -125,11 +126,11 @@ export function AppSidebar() {
                         <SidebarMenuButton
                           asChild
                           isActive={isActive}
+                          className={isActive ? "bg-primary/10 rounded-md" : "rounded-md"}
                         >
                           <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
                             <item.icon className={`h-4 w-4 transition-colors duration-150 ${isActive ? "text-primary" : item.color}`} />
                             <span className="font-medium">{item.title}</span>
-                            {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary opacity-70" />}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -141,34 +142,37 @@ export function AppSidebar() {
           </>
         )}
       </SidebarContent>
-      <SidebarFooter className="p-3">
-        <SidebarSeparator className="mb-3" />
-        <a href="https://t.me/lutaubos" target="_blank" rel="noopener noreferrer" className="block mb-3">
-          <div className="rounded-md bg-gradient-to-r from-primary/10 to-violet-500/10 p-3 border border-primary/10">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-semibold">Upgrade to Pro</span>
+      <SidebarFooter className="p-4">
+        <SidebarSeparator className="mb-4" />
+        <a href="https://t.me/lutaubos" target="_blank" rel="noopener noreferrer" className="block mb-4">
+          <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary/15 via-purple-500/10 to-pink-500/10 p-3.5 border border-primary/10">
+            <div className="absolute -top-3 -right-3 h-12 w-12 rounded-full bg-primary/10 blur-xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold">Upgrade to Pro</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mb-3">Unlock unlimited products & licenses</p>
+              <Button size="sm" className="w-full" data-testid="button-sidebar-upgrade">
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                Contact Telegram
+              </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mb-2">Unlock unlimited products & licenses</p>
-            <Button size="sm" className="w-full" data-testid="button-sidebar-upgrade">
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-              Contact Telegram
-            </Button>
           </div>
         </a>
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9 border-2 border-primary/20">
+          <Avatar className="h-9 w-9 border border-primary/15">
             <AvatarImage src={user?.profileImageUrl || undefined} />
             <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold truncate" data-testid="text-user-name">
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">
                 {user?.firstName} {user?.lastName}
               </p>
               {isAdmin && <Badge variant="default" className="text-[9px] px-1.5 py-0">Admin</Badge>}
             </div>
-            <p className="text-[11px] text-muted-foreground truncate" data-testid="text-user-email">
+            <p className="text-[11px] text-muted-foreground/70 truncate" data-testid="text-user-email">
               {user?.email}
             </p>
           </div>
