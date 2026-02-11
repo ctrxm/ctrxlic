@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { I18nProvider } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -45,6 +47,7 @@ function AuthenticatedLayout() {
           <header className="flex items-center justify-between gap-4 p-2 border-b bg-background sticky top-0 z-50">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-1">
+              <LanguageSwitcher />
               <NotificationsBell />
               <ThemeToggle />
             </div>
@@ -145,10 +148,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <AppContent />
-        </TooltipProvider>
+        <I18nProvider>
+          <TooltipProvider>
+            <Toaster />
+            <AppContent />
+          </TooltipProvider>
+        </I18nProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

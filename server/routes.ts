@@ -55,6 +55,32 @@ setInterval(() => {
   });
 }, 30 * 1000);
 
+async function sendTelegramMessage(botToken: string, chatId: string, text: string): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    });
+    return await resp.json() as { ok: boolean; description?: string };
+  } catch (err: any) {
+    console.error("[Telegram] Error sending message:", err.message);
+    return { ok: false, description: err.message };
+  }
+}
+
+async function sendTelegramNotification(message: string) {
+  try {
+    const botToken = await storage.getSetting("telegram.botToken");
+    const chatId = await storage.getSetting("telegram.chatId");
+    const enabled = await storage.getSetting("telegram.enabled");
+    if (!botToken || !chatId || enabled !== "true") return;
+    await sendTelegramMessage(botToken, chatId, message);
+  } catch (err) {
+    console.error("[Telegram] Notification error:", err);
+  }
+}
+
 async function triggerWebhooks(userId: string, event: string, payload: any) {
   try {
     const userWebhooks = await storage.getWebhooksByEvent(userId, event);
@@ -300,6 +326,7 @@ export async function registerRoutes(
       });
 
       triggerWebhooks(userId, "license.created", { licenseId: license.id, licenseKey, productId, type, customerName, customerEmail });
+      sendTelegramNotification(`New License Created\nKey: ${licenseKey}\nType: ${type}\nCustomer: ${customerName || "N/A"}\nEmail: ${customerEmail || "N/A"}`);
 
       res.json(license);
     } catch (error: any) {
@@ -624,6 +651,7 @@ export async function registerRoutes(
     "platform.name", "platform.defaultRateLimit", "platform.defaultMaxActivations", "platform.licenseFormat",
     "security.sessionTimeoutMinutes", "security.passwordMinLength", "security.requireSpecialChar", "security.twoFactorEnabled",
     "general.maintenanceMode", "general.registrationEnabled", "general.defaultUserRole", "general.allowReplitAuth",
+    "telegram.botToken", "telegram.chatId", "telegram.enabled",
   ]);
 
   app.put("/api/admin/settings", isAuthenticated, isAdmin, async (req: any, res) => {
@@ -848,6 +876,7 @@ export async function registerRoutes(
 
           if (license.userId) {
             triggerWebhooks(license.userId, "license.activated", { licenseId: license.id, licenseKey: license_key, machineId: machine_id });
+            sendTelegramNotification(`License Activated\nKey: ${license_key}\nMachine: ${machine_id}\nIP: ${req.ip || "N/A"}`);
           }
         }
       }
@@ -859,6 +888,18 @@ export async function registerRoutes(
         details: { machine_id, product_id },
         ipAddress: req.ip,
       });
+
+      if (license.userId) {
+        storage.createValidationLog({
+          licenseId: license.id,
+          userId: license.userId,
+          action: "validate",
+          ipAddress: req.ip || null,
+          domain: domain || null,
+          machineId: machine_id || null,
+          success: true,
+        }).catch(() => {});
+      }
 
       const timestamp = Date.now();
       const responseData = {
@@ -1166,6 +1207,83 @@ export async function registerRoutes(
     }
   });
 
+  // License renewal endpoint
+  app.post("/api/licenses/:id/renew", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+      if (license.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      const { expiresAt } = req.body;
+      if (!expiresAt) {
+        return res.status(400).json({ message: "expiresAt is required" });
+      }
+      const newExpiry = new Date(expiresAt);
+      if (isNaN(newExpiry.getTime()) || newExpiry <= new Date()) {
+        return res.status(400).json({ message: "Invalid expiry date. Must be in the future." });
+      }
+      const previousExpiry = license.expiresAt;
+      await storage.renewLicense(license.id, newExpiry);
+      await storage.createAuditLog({
+        action: "license.renewed",
+        entityType: "license",
+        entityId: license.id,
+        userId,
+        details: { previousExpiresAt: previousExpiry, newExpiresAt: newExpiry, licenseKey: license.licenseKey },
+      });
+      await storage.createNotification({
+        userId,
+        type: "license_renewed",
+        title: "License Renewed",
+        body: `License ${license.licenseKey} renewed until ${newExpiry.toLocaleDateString()}`,
+        metadata: { licenseId: license.id },
+      });
+      triggerWebhooks(userId, "license.renewed", { licenseId: license.id, licenseKey: license.licenseKey, newExpiresAt: newExpiry });
+      sendTelegramNotification(`License Renewed\nKey: ${license.licenseKey}\nNew Expiry: ${newExpiry.toLocaleDateString()}\nCustomer: ${license.customerName || "N/A"}`);
+      res.json({ message: "License renewed successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Validation heatmap endpoint
+  app.get("/api/statistics/heatmap", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const heatmap = await storage.getValidationHeatmap(userId);
+      res.json(heatmap);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Telegram test notification
+  app.post("/api/admin/telegram/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user?.claims?.sub ? await storage.getUser(req.user.claims.sub) : req.user?.userId ? await storage.getUser(req.user.userId) : null;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const botToken = await storage.getSetting("telegram.botToken");
+      const chatId = await storage.getSetting("telegram.chatId");
+      if (!botToken || !chatId) {
+        return res.status(400).json({ message: "Telegram bot token and chat ID must be configured first" });
+      }
+      const result = await sendTelegramMessage(botToken, chatId, "CTRXL LICENSE - Test Notification\nThis is a test message from your license management platform.");
+      if (result.ok) {
+        res.json({ message: "Test notification sent successfully" });
+      } else {
+        res.status(400).json({ message: `Telegram API error: ${result.description || "Unknown error"}` });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Scheduled jobs - run every hour
   setInterval(async () => {
     try {
@@ -1188,6 +1306,7 @@ export async function registerRoutes(
             metadata: { licenseId: license.id },
           });
           triggerWebhooks(license.userId, "license.expired", { licenseId: license.id, licenseKey: license.licenseKey });
+          sendTelegramNotification(`License Expired\nKey: ${license.licenseKey}\nCustomer: ${license.customerName || "N/A"}`);
         }
       }
 

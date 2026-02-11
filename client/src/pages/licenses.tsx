@@ -52,7 +52,9 @@ import {
   RefreshCw,
   Trash2,
   ArrowRightLeft,
+  RotateCcw,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 import type { License, Product } from "@shared/schema";
 
 const generateLicenseSchema = z.object({
@@ -82,7 +84,10 @@ export default function LicensesPage() {
   const [transferId, setTransferId] = useState<string | null>(null);
   const [transferName, setTransferName] = useState("");
   const [transferEmail, setTransferEmail] = useState("");
+  const [renewId, setRenewId] = useState<string | null>(null);
+  const [renewDate, setRenewDate] = useState("");
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const { data: licenses, isLoading } = useQuery<(License & { productName?: string })[]>({
     queryKey: ["/api/licenses"],
@@ -158,6 +163,23 @@ export default function LicensesPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const renewMutation = useMutation({
+    mutationFn: async ({ id, expiresAt }: { id: string; expiresAt: string }) => {
+      await apiRequest("POST", `/api/licenses/${id}/renew`, { expiresAt });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/licenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
+      toast({ title: t("licenses.renewSuccess") });
+      setRenewId(null);
+      setRenewDate("");
+    },
+    onError: (error: Error) => {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -443,6 +465,21 @@ export default function LicensesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          {(license.status === "active" || license.status === "expired") && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setRenewId(license.id);
+                                const defaultDate = new Date();
+                                defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+                                setRenewDate(defaultDate.toISOString().split("T")[0]);
+                              }}
+                              data-testid={`button-renew-${license.id}`}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {license.status === "active" && (
                             <>
                               <Button
@@ -485,6 +522,39 @@ export default function LicensesPage() {
           </div>
         </Card>
       )}
+
+      <Dialog open={!!renewId} onOpenChange={(v) => { if (!v) { setRenewId(null); setRenewDate(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("licenses.renewTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("licenses.renewDesc")}</p>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">{t("licenses.newExpiryDate")}</label>
+              <Input
+                type="date"
+                value={renewDate}
+                onChange={(e) => setRenewDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                data-testid="input-renew-date"
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (renewId && renewDate) {
+                  renewMutation.mutate({ id: renewId, expiresAt: renewDate });
+                }
+              }}
+              disabled={!renewDate || renewMutation.isPending}
+              data-testid="button-submit-renew"
+            >
+              {renewMutation.isPending ? t("licenses.renewing") : t("licenses.renew")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!transferId} onOpenChange={(v) => { if (!v) setTransferId(null); }}>
         <DialogContent>

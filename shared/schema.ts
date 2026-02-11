@@ -153,6 +153,25 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const validationLogs = pgTable("validation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  licenseId: varchar("license_id"),
+  userId: varchar("user_id"),
+  action: text("action").notNull(),
+  ipAddress: text("ip_address"),
+  domain: text("domain"),
+  machineId: text("machine_id"),
+  success: boolean("success").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_vlog_user").on(table.userId),
+  index("idx_vlog_created").on(table.createdAt),
+]);
+
+export const insertValidationLogSchema = createInsertSchema(validationLogs).omit({ id: true, createdAt: true });
+export type ValidationLog = typeof validationLogs.$inferSelect;
+export type InsertValidationLog = z.infer<typeof insertValidationLogSchema>;
+
 export const insertPlanSchema = createInsertSchema(plans).omit({ id: true, createdAt: true });
 export type Plan = typeof plans.$inferSelect;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;

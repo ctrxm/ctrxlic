@@ -25,6 +25,8 @@ import {
   Lock,
   Monitor,
   CheckCircle2,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -70,6 +72,9 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   "general.registrationEnabled": "true",
   "general.defaultUserRole": "user",
   "general.allowReplitAuth": "true",
+  "telegram.botToken": "",
+  "telegram.chatId": "",
+  "telegram.enabled": "false",
 };
 
 export default function AdminSettingsPage() {
@@ -264,6 +269,10 @@ export default function AdminSettingsPage() {
           <TabsTrigger value="users" data-testid="tab-user-plans" className="gap-1.5">
             <Users className="h-3.5 w-3.5" />
             User Plans
+          </TabsTrigger>
+          <TabsTrigger value="telegram" data-testid="tab-telegram" className="gap-1.5">
+            <Send className="h-3.5 w-3.5" />
+            Telegram
           </TabsTrigger>
         </TabsList>
 
@@ -610,6 +619,104 @@ export default function AdminSettingsPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="telegram" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Telegram Notifications</h2>
+            <p className="text-sm text-muted-foreground">Configure real-time license event notifications via Telegram bot</p>
+          </div>
+          <Card className="p-5 space-y-4">
+            <div className="space-y-3">
+              <div>
+                <Label>Telegram Bot Token</Label>
+                <Input
+                  data-testid="input-telegram-bot-token"
+                  type="password"
+                  placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  value={mergedSettings["telegram.botToken"] || ""}
+                  onChange={e => updateSetting("telegram.botToken", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Get a bot token from @BotFather on Telegram</p>
+              </div>
+              <div>
+                <Label>Chat ID</Label>
+                <Input
+                  data-testid="input-telegram-chat-id"
+                  placeholder="-1001234567890"
+                  value={mergedSettings["telegram.chatId"] || ""}
+                  onChange={e => updateSetting("telegram.chatId", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Your Telegram user ID or group chat ID</p>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label>Enable Notifications</Label>
+                  <p className="text-xs text-muted-foreground">Send notifications for license events</p>
+                </div>
+                <Switch
+                  data-testid="switch-telegram-enabled"
+                  checked={mergedSettings["telegram.enabled"] === "true"}
+                  onCheckedChange={v => updateSetting("telegram.enabled", v ? "true" : "false")}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+              <Button
+                onClick={() => {
+                  const telegramKeys = ["telegram.botToken", "telegram.chatId", "telegram.enabled"];
+                  const data: Record<string, string> = {};
+                  telegramKeys.forEach(k => { data[k] = mergedSettings[k] || ""; });
+                  saveSettingsMutation.mutate(data);
+                }}
+                disabled={saveSettingsMutation.isPending}
+                data-testid="button-save-telegram"
+              >
+                <Save className="h-4 w-4 mr-1.5" />
+                Save Settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await apiRequest("POST", "/api/admin/telegram/test");
+                    const result = await res.json();
+                    if (result.success) {
+                      toast({ title: "Test message sent successfully" });
+                    } else {
+                      toast({ title: "Failed", description: result.error || "Could not send test message", variant: "destructive" });
+                    }
+                  } catch (e: any) {
+                    toast({ title: "Error", description: e.message, variant: "destructive" });
+                  }
+                }}
+                data-testid="button-test-telegram"
+              >
+                <Send className="h-4 w-4 mr-1.5" />
+                Send Test Message
+              </Button>
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h3 className="font-semibold mb-3">Notification Events</h3>
+            <p className="text-sm text-muted-foreground mb-3">When enabled, you will receive Telegram notifications for:</p>
+            <div className="space-y-2">
+              {[
+                { event: "License Created", desc: "When a new license is generated" },
+                { event: "License Activated", desc: "When a license is activated on a machine" },
+                { event: "License Expired", desc: "When a license expires" },
+                { event: "License Renewed", desc: "When a license is renewed" },
+              ].map((item) => (
+                <div key={item.event} className="flex items-start gap-3 p-2.5 rounded-md bg-background">
+                  <CheckCircle2 className="h-4 w-4 text-chart-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">{item.event}</p>
+                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
         </TabsContent>
       </Tabs>
 

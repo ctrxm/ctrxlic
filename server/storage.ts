@@ -1,6 +1,6 @@
 import {
   products, licenses, apiKeys, activations, auditLogs, webhooks, webhookDeliveries, notifications,
-  plans, platformSettings,
+  plans, platformSettings, validationLogs,
   type Product, type InsertProduct,
   type License, type InsertLicense,
   type ApiKey, type InsertApiKey,
@@ -11,6 +11,7 @@ import {
   type Notification, type InsertNotification,
   type Plan, type InsertPlan,
   type PlatformSetting,
+  type ValidationLog, type InsertValidationLog,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -86,6 +87,10 @@ export interface IStorage {
   upsertSettings(settings: { key: string; value: string }[]): Promise<void>;
 
   updateUserPlan(userId: string, planId: string | null): Promise<void>;
+
+  renewLicense(id: string, newExpiresAt: Date): Promise<void>;
+  createValidationLog(data: InsertValidationLog): Promise<void>;
+  getValidationHeatmap(userId: string): Promise<{ dayOfWeek: number; hour: number; count: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -613,6 +618,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserPlan(userId: string, planId: string | null): Promise<void> {
     await db.update(users).set({ planId }).where(eq(users.id, userId));
+  }
+
+  async renewLicense(id: string, newExpiresAt: Date): Promise<void> {
+    await db.update(licenses).set({ expiresAt: newExpiresAt, status: "active", updatedAt: new Date() }).where(eq(licenses.id, id));
+  }
+
+  async createValidationLog(data: InsertValidationLog): Promise<void> {
+    await db.insert(validationLogs).values(data);
+  }
+
+  async getValidationHeatmap(userId: string): Promise<{ dayOfWeek: number; hour: number; count: number }[]> {
+    const result = await db.execute(sql`
+      SELECT
+        EXTRACT(DOW FROM vl.created_at)::int as day_of_week,
+        EXTRACT(HOUR FROM vl.created_at)::int as hour,
+        COUNT(*)::int as count
+      FROM validation_logs vl
+      WHERE vl.user_id = ${userId}
+        AND vl.created_at > NOW() - INTERVAL '30 days'
+      GROUP BY day_of_week, hour
+      ORDER BY day_of_week, hour
+    `);
+    return (result.rows || []) as { dayOfWeek: number; hour: number; count: number }[];
   }
 }
 
