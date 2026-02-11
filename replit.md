@@ -110,7 +110,10 @@ cloudflare-pages/
 - Corporate modern design with blue primary color
 - Sidebar navigation with colored icons per menu item (Shadcn sidebar)
 - Dashboard with gradient hero banner, colored stat cards, quick action cards, and overview summary
-- CSS animations: fade-in, fade-in-scale, slide-in-left with stagger delays for smooth page loads
+- Fully mobile-responsive dashboard with adaptive grids, text sizes, and padding
+- CSS animations: fade-in, fade-in-scale, slide-in-left, pulse-subtle with stagger delays for smooth page loads
+- Upgrade CTA in sidebar footer and dashboard linking to Telegram @lutaubos
+- Landing page pricing Pro/Enterprise buttons link to Telegram @lutaubos
 - Brand: CTRXL LICENSE
 
 ## User Preferences
@@ -119,3 +122,4 @@ cloudflare-pages/
 - Brand name: CTRXL LICENSE
 - Domain binding feature for license validation
 - Unified dashboard with admin features only for admin-role users
+- Upgrade/pricing buttons redirect to Telegram @lutaubos
